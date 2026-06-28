@@ -235,13 +235,13 @@ const publicCountryBaseline = [
   },
 ];
 
-safetySlider.addEventListener('input', () => {
+if(safetySlider)safetySlider.addEventListener('input', () => {
   safetyValue.textContent = `${safetySlider.value}%`;
 });
-robotSlider.addEventListener('input', () => {
+if(robotSlider)robotSlider.addEventListener('input', () => {
   robotValue.textContent = `${robotSlider.value}%`;
 });
-evidenceSlider.addEventListener('input', () => {
+if(evidenceSlider)evidenceSlider.addEventListener('input', () => {
   evidenceValue.textContent = `${evidenceSlider.value}%`;
 });
 assetDetailScoreInput?.addEventListener('input', () => {
@@ -254,7 +254,7 @@ assetRightsScoreInput?.addEventListener('input', () => {
   assetRightsValue.textContent = `${assetRightsScoreInput.value}%`;
 });
 
-timeEraSelect.addEventListener('change', () => applyEraBaseline(timeEraSelect.value));
+if(timeEraSelect)timeEraSelect.addEventListener('change', () => applyEraBaseline(timeEraSelect.value));
 
 // Login / profile section toggle
 if (topLoginButton && profilePanel) {
@@ -276,15 +276,15 @@ if (topLoginButton && profilePanel) {
 if (llmConnectButton) llmConnectButton.addEventListener('click', () => { connectLLM(); });
 if (llmSendButton) llmSendButton.addEventListener('click', () => { sendLLMRequest(); });
 
-saveProfileButton.addEventListener('click', () => {
+if(saveProfileButton)saveProfileButton.addEventListener('click', () => {
   saveProfile();
 });
 
-saveScenarioButton.addEventListener('click', () => {
+if(saveScenarioButton)saveScenarioButton.addEventListener('click', () => {
   saveScenario();
 });
 
-loadLatestScenarioButton.addEventListener('click', () => {
+if(loadLatestScenarioButton)loadLatestScenarioButton.addEventListener('click', () => {
   loadLatestScenario();
 });
 submitAssetButton?.addEventListener('click', () => {
@@ -293,16 +293,18 @@ submitAssetButton?.addEventListener('click', () => {
 
 function applyEraBaseline(eraKey) {
   const preset = eraPresets[eraKey];
-  document.getElementById('calories').value = preset.calories;
-  document.getElementById('water').value = preset.water;
-  document.getElementById('housing').value = preset.housing;
-  document.getElementById('energy').value = preset.energy;
-  document.getElementById('medicine').value = preset.medicine;
-  document.getElementById('materials').value = preset.materials;
-  baselineNote.textContent = preset.note;
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  setVal('calories', preset.calories);
+  setVal('water', preset.water);
+  setVal('housing', preset.housing);
+  setVal('energy', preset.energy);
+  setVal('medicine', preset.medicine);
+  setVal('materials', preset.materials);
+  if (baselineNote) baselineNote.textContent = preset.note;
 }
 
-document.getElementById('calculate-button').addEventListener('click', () => {
+const calcButton = document.getElementById('calculate-button');
+if (calcButton) calcButton.addEventListener('click', () => {
   const population = Number(document.getElementById('population').value);
   const safetyMargin = Number(document.getElementById('safety-margin').value) / 100;
   const robotRate = Number(document.getElementById('robotization').value) / 100;
@@ -2088,14 +2090,16 @@ function renderVertexEditor(nodeId) {
     ${metaLine ? `<p class="muted-text" style="margin:0.55rem 0 0;font-size:0.82rem">${metaLine}</p>` : ''}
   `;
   vertexEditorPanel.hidden = false;
-  document.getElementById('apply-vertex').addEventListener('click', () => {
+  const applyBtn = document.getElementById('apply-vertex');
+  const resetBtn = document.getElementById('reset-vertex');
+  if (applyBtn) applyBtn.addEventListener('click', () => {
     applyVertexMove(nodeId, mesh,
       Number(document.getElementById('vertex-x').value),
       Number(document.getElementById('vertex-y').value),
       Number(document.getElementById('vertex-z').value)
     );
   });
-  document.getElementById('reset-vertex').addEventListener('click', () => {
+  if (resetBtn) resetBtn.addEventListener('click', () => {
     const orig = worldSceneState.originalPositions.get(nodeId);
     if (orig) applyVertexMove(nodeId, mesh, orig.x, orig.y, orig.z);
   });
@@ -3348,13 +3352,14 @@ setTimeout(() => {
   if (target) obs.observe(target, { childList: true, subtree: true });
 }, 1000);
 
-// Initialize with default results
-applyEraBaseline(timeEraSelect.value);
+// Initialize with default results — only where elements exist
+if (timeEraSelect) applyEraBaseline(timeEraSelect.value);
 updateProfileSummary();
 updateMemberToolsVisibility();
-renderScenarios();
-renderCostEstimate();
-renderCountryMonitor();
-initViewSystem();
-initWorldPreview();
-document.getElementById('calculate-button').click();
+if (document.getElementById('scenario-list')) renderScenarios();
+if (document.getElementById('cost-results')) renderCostEstimate();
+if (document.getElementById('country-monitor-list')) renderCountryMonitor();
+if (document.querySelector('.view-tabs')) initViewSystem();
+if (document.getElementById('world-scene')) initWorldPreview();
+const calcBtn = document.getElementById('calculate-button');
+if (calcBtn) calcBtn.click();

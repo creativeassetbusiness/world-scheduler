@@ -11,7 +11,7 @@
       <span class="top-nav-brand">World Scheduler</span>
       <span class="top-nav-links">
         <a class="top-nav-login" href="learn.html">Learn</a>
-        <a class="top-nav-login" href="#" id="top-login-button" style="margin-left:0.4rem;cursor:pointer;">Login</a>
+        <a class="top-nav-login" href="login.html" style="margin-left:0.4rem;">Login</a>
       </span>
     </nav>
     <header class="hero">
@@ -24,7 +24,7 @@
           </p>
           <div class="hero-actions">
             <a class="button" href="#explore-data">Explore the data</a>
-            <a class="button secondary" href="#login-section">Member workspace</a>
+            <a class="button secondary" href="login.html">Member workspace</a>
           </div>
           <div class="hero-stats">
             <div class="hero-stat">
@@ -43,67 +43,6 @@
         </div>
       </div>
     </header>
-
-    <!-- Login / Profile section — revealed when Login is clicked -->
-    <section class="section login-section" id="login-section" hidden>
-      <div class="content" style="max-width:560px;">
-        <div class="profile-panel" style="border:1px solid var(--border-strong);">
-          <div class="profile-head">
-            <div>
-              <p class="eyebrow">Profile</p>
-              <h2>Your Data Profile</h2>
-            </div>
-          </div>
-          <div class="profile-card">
-            <div class="field-row">
-              <label for="profile-name">Name</label>
-              <input type="text" id="profile-name" placeholder="First &amp; last" />
-            </div>
-            <div class="field-row">
-              <label for="profile-email">Email</label>
-              <input type="email" id="profile-email" placeholder="you@example.com" />
-            </div>
-            <div class="field-row">
-              <label for="profile-type">Profile type</label>
-              <select id="profile-type">
-                <option value="personal">Personal</option>
-                <option value="business">Business</option>
-              </select>
-            </div>
-            <div class="field-row verify-row">
-              <label>
-                <input type="checkbox" id="profile-verify" /> Verify data numbers
-              </label>
-            </div>
-            <div class="field-row">
-              <label class="checkbox-pill">
-                <input type="checkbox" id="margin-affected" /> I am affected by the Margin of Error
-              </label>
-            </div>
-            <div class="field-row">
-              <label for="margin-impact">Impact level</label>
-              <select id="margin-impact">
-                <option value="low">Low — modest disruption</option>
-                <option value="moderate" selected>Moderate — recurring sacrifice</option>
-                <option value="high">High — direct life impact</option>
-              </select>
-            </div>
-            <div class="field-row">
-              <button type="button" id="save-profile" class="button secondary">Create profile</button>
-            </div>
-            <div id="profile-summary" class="profile-summary">
-              <p>No profile created yet.</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Unlocks after profile creation — calculator + results moved here by JS -->
-        <div id="member-workspace" hidden>
-          <p class="muted-text" style="margin-bottom:1rem;">Your workspace is ready. Use the calculator and saved scenarios to build and revisit planning models.</p>
-          <div id="member-tools-target"></div>
-        </div>
-      </div>
-    </section>
 
     <main>
       <!--
@@ -214,15 +153,8 @@
           </div>
 
           <!-- Quick chips -->
-          <div class="explorer-chips" id="explorer-chips">
-            <span class="chips-label">Trending:</span>
-            <button class="chip" data-chip="country:EE">🇪🇪 Estonia</button>
-            <button class="chip" data-chip="metric:civilization_efficiency_index">Civilization efficiency</button>
-            <button class="chip" data-chip="metric:overall_resource_security">Resource security</button>
-            <button class="chip" data-chip="metric:human_development_proxy">Human development</button>
-            <button class="chip" data-chip="metric:sustainability_proxy">Sustainability</button>
-            <button class="chip" data-chip="metric:world_stewardship_score">Stewardship</button>
-          </div>
+          <!-- Trending chips — removed from public view. Reimplement as personalized "For You" after login. -->
+          <div class="explorer-chips" id="explorer-chips" hidden></div>
 
           <!-- Compare bar -->
           <div class="explorer-compare-bar" id="explorer-compare-bar">
