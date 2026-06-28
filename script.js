@@ -3356,13 +3356,31 @@ function drawBarChart(canvasId, data, options = {}) {
   const max = Math.max(...entries.map(([,v]) => v), 1);
   const barW = (W - 60) / entries.length - 8;
 
+  // Polyfill roundRect if needed
+  if (!ctx.roundRect) {
+    ctx.roundRect = function(x, y, w, h, r) {
+      if (Array.isArray(r)) r = r[0];
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.arcTo(x + w, y, x + w, y + r, r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+      ctx.lineTo(x + r, y + h);
+      ctx.arcTo(x, y + h, x, y + h - r, r);
+      ctx.lineTo(x, y + r);
+      ctx.arcTo(x, y, x + r, y, r);
+    };
+  }
+
   ctx.clearRect(0, 0, W, H);
   entries.forEach(([label, value], i) => {
     const x = 40 + i * (barW + 8);
     const h = (value / max) * (H - 50);
     const y = H - 30 - h;
     ctx.fillStyle = '#7c3aed';
-    ctx.beginPath(); ctx.roundRect(x, y, barW, h, [4,4,0,0]); ctx.fill();
+    ctx.roundRect(x, y, barW, h, [4,4,0,0]);
+    ctx.fill();
     ctx.fillStyle = '#9898a0';
     ctx.font = `${Math.max(9,barW*0.22)}px Inter, system-ui`;
     ctx.textAlign = 'center';
