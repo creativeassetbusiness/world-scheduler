@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>World Scheduler</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero-content hero-grid">
+        <div class="hero-copy-col">
+          <h1>World Scheduler</h1>
+          <p class="hero-copy">
+            Plan civilization with numbers, not arguments. World Scheduler converts human needs into physical goods, production capacity, and labor hours.
+            It shows shortages, tax direction, and the safety margins required to keep civilization abundant.
+          </p>
+          <div class="hero-actions">
+            <a class="button" href="#data-view">Explore the data</a>
+            <a class="button secondary" href="#member-tools">Member workspace</a>
+          </div>
+          <div class="hero-stats">
+            <div class="hero-stat">
+              <strong>1</strong>
+              <span>National planning campus</span>
+            </div>
+            <div class="hero-stat">
+              <strong>1000</strong>
+              <span>Year stewardship model</span>
+            </div>
+            <div class="hero-stat">
+              <strong>∞</strong>
+              <span>Visible human sacrifice ledger</span>
+            </div>
+          </div>
+        </div>
+        <aside class="profile-panel">
+          <div class="profile-head">
+            <div>
+              <p class="eyebrow">Profile</p>
+              <h2>Your Data Profile</h2>
+            </div>
+          </div>
+          <div class="profile-card">
+            <div class="field-row">
+              <label for="profile-name">Name</label>
+              <input type="text" id="profile-name" placeholder="First & last" />
+            </div>
+            <div class="field-row">
+              <label for="profile-email">Email</label>
+              <input type="email" id="profile-email" placeholder="you@example.com" />
+            </div>
+            <div class="field-row">
+              <label for="profile-type">Profile type</label>
+              <select id="profile-type">
+                <option value="personal">Personal</option>
+                <option value="business">Business</option>
+              </select>
+            </div>
+            <div class="field-row verify-row">
+              <label>
+                <input type="checkbox" id="profile-verify" /> Verify data numbers
+              </label>
+            </div>
+            <div class="field-row">
+              <label class="checkbox-pill">
+                <input type="checkbox" id="margin-affected" /> I am affected by the Margin of Error
+              </label>
+            </div>
+            <div class="field-row">
+              <label for="margin-impact">Impact level</label>
+              <select id="margin-impact">
+                <option value="low">Low — modest disruption</option>
+                <option value="moderate" selected>Moderate — recurring sacrifice</option>
+                <option value="high">High — direct life impact</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <button type="button" id="save-profile" class="button secondary">Create profile</button>
+            </div>
+            <div id="profile-summary" class="profile-summary">
+              <p>No profile created yet.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </header>
+
+    <main>
+      <section class="section journey-map">
+        <div class="content">
+          <h2>Journey map</h2>
+          <p class="journey-copy">Top to bottom: choose an era, zoom into Earth, inspect regions and homes, then run the scheduler. Output is the result of those inputs.</p>
+          <div class="journey-steps">
+            <div class="journey-step"><span>1</span><strong>Era</strong><p>Select the time baseline for your civilization.</p></div>
+            <div class="journey-step"><span>2</span><strong>Zoom in on Earth</strong><p>Choose the macro region that matters.</p></div>
+            <div class="journey-step"><span>3</span><strong>Region & Home Details</strong><p>Inspect how local data changes the result.</p></div>
+            <div class="journey-step"><span>4</span><strong>Profile unlock</strong><p>Create a profile to access the member planning workspace.</p></div>
+            <div class="journey-step"><span>5</span><strong>Member tools</strong><p>Run the calculator inside your private planning area once signed in.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section intro" id="data-view">
+        <div class="content">
+          <h2>What the World Scheduler does</h2>
+          <p>
+            The World Scheduler is a system for measuring civilization using physical numbers:
+            calories, water, energy, housing, medicine, materials, labor hours, and transport.
+            It uses safety margins and production data to find real shortages and set real priorities.
+          </p>
+        </div>
+      </section>
+
+      <section class="section cards">
+        <article class="card">
+          <h3>Needs → Supply → Shortage</h3>
+          <p>
+            Calculate what people actually need, then compare that need to what is available.
+            When supply is lower than the safety-target, the system finds the shortage in exact numbers.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Tax direction becomes action</h3>
+          <p>
+            When a resource is short, direction is clear: build farms, water systems, greenhouses, factories, transport, or automation.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Labor hours reveal true cost</h3>
+          <p>
+            Goods require production. Production requires labor. Robots lower human labor and free people for higher quality of life.
+          </p>
+        </article>
+      </section>
+
+      <section class="section explanation">
+        <div class="content">
+          <h2>The philosophy behind the scheduler</h2>
+          <p>
+            This is not redistribution based on politics. It is engineering civilization as a system.
+            You calculate need, add a safety margin, measure supply, find the gap, direct resources, and repeat.
+          </p>
+          <ul>
+            <li>Do we have enough calories?</li>
+            <li>Do we have enough water?</li>
+            <li>Do we have enough housing?</li>
+            <li>Do we have enough energy?</li>
+            <li>Do we have enough medicine?</li>
+            <li>Do we have enough materials?</li>
+            <li>Do we have enough production capacity?</li>
+            <li>Do we have enough transportation?</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section map-section">
+        <div class="content map-grid">
+          <div class="map-view">
+            <h2>Zoom in on Earth</h2>
+            <p>Choose a region, then zoom to individual homes to inspect consumption and usage.</p>
+            <div class="world-toolbar">
+              <div class="detail-mode-buttons">
+                <button type="button" class="detail-mode active" data-mode="macro">Macro</button>
+                <button type="button" class="detail-mode" data-mode="micro">Micro</button>
+                <button type="button" class="detail-mode" data-mode="nano">Nano</button>
+              </div>
+              <div id="world-status" class="world-status">Select a region to inspect the world layer.</div>
+            </div>
+            <div id="nano-toolbar" class="nano-toolbar" hidden>
+              <div class="prim-mode-buttons">
+                <button type="button" class="prim-mode active" data-prim="all">All</button>
+                <button type="button" class="prim-mode" data-prim="face">Faces</button>
+                <button type="button" class="prim-mode" data-prim="edge">Edges</button>
+                <button type="button" class="prim-mode" data-prim="vertex">Vertices</button>
+              </div>
+              <div class="nano-edit-controls">
+                <button type="button" id="world-undo" class="button ghost" disabled>↩ Undo</button>
+                <button type="button" id="world-redo" class="button ghost" disabled>↪ Redo</button>
+                <button type="button" id="world-isolate" class="button ghost">Isolate</button>
+                <button type="button" id="world-isolate-exit" class="button ghost" hidden>Exit isolate</button>
+              </div>
+            </div>
+            <div class="globe" id="world-scene"></div>
+            <div class="map-legend">
+              <p>Tap a region, then switch between macro, micro, and nano detail to inspect the world layer.</p>
+              <p class="muted-text">This is a working 3D preview of the World Scheduler's spatial planning model.</p>
+            </div>
+            <div class="world-callout">
+              <h3>Current 3D build status</h3>
+              <p>The live preview already supports hierarchy-aware macro, micro, and nano navigation. The next technical step is direct face, edge, and vertex picking on the active nano surface.</p>
+            </div>
+          </div>
+
+          <div class="map-details">
+            <h2>Region & home details</h2>
+            <div id="selected-region" class="detail-box">
+              <p>Select a region on the globe to begin.</p>
+            </div>
+            <div class="detail-controls">
+              <button id="zoom-home-button" disabled>Zoom into homes</button>
+            </div>
+            <div id="home-list" class="home-list"></div>
+            <div id="home-details" class="home-details"></div>
+            <div id="vertex-editor" class="vertex-editor" hidden>
+              <h3>Vertex editor</h3>
+              <div id="vertex-editor-content"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section data-integration-section">
+        <div class="content">
+          <h2>Data integration blueprint</h2>
+          <p class="journey-copy">The portal needs a truth layer behind the visuals. Every regional model, life plan, and device reading should land in a structured pipeline with confidence, recency, and verification data.</p>
+          <div class="data-integration-grid">
+            <article class="data-card">
+              <h3>Source classes</h3>
+              <p>Member plans, world graph nodes, regional supply baselines, device telemetry, partner APIs, and LLM interpretation streams all need their own ingestion path.</p>
+              <ul>
+                <li>Profiles and scenarios from the member workspace</li>
+                <li>Region and component metrics from the world graph</li>
+                <li>Ground-device readings from the 1,000,000 node fleet</li>
+                <li>External economics, health, climate, and infrastructure feeds</li>
+              </ul>
+            </article>
+            <article class="data-card">
+              <h3>Truth scoring</h3>
+              <p>Every datapoint should carry a probability of truth, not just a value. That score should drive both planning confidence and UI warnings.</p>
+              <ul>
+                <li>Confidence from source reliability</li>
+                <li>Recency decay based on timestamp</li>
+                <li>Verification badge from human or device validation</li>
+                <li>Conflict penalties when sources disagree</li>
+              </ul>
+            </article>
+            <article class="data-card">
+              <h3>Core record shape</h3>
+              <p>Every metric should resolve into a common planning record so the portal can compare life plans, global baselines, and physical infrastructure on the same model.</p>
+              <div class="data-schema">
+                <span>nodeId</span>
+                <span>metric</span>
+                <span>value</span>
+                <span>unit</span>
+                <span>sourceType</span>
+                <span>confidence</span>
+                <span>observedAt</span>
+                <span>verifiedBy</span>
+              </div>
+            </article>
+            <article class="data-card">
+              <h3>Immediate build micro-steps</h3>
+              <p>The next delivery should connect the existing UI to a defined data contract instead of adding more display-only panels.</p>
+              <ul>
+                <li>Attach confidence fields to scenario saves</li>
+                <li>Map world nodes to structured metrics and provenance</li>
+                <li>Define a telemetry payload for ground devices</li>
+                <li>Introduce a visible conflict or stale-data state</li>
+              </ul>
+            </article>
+          </div>
+          <div class="country-monitor-panel">
+            <div class="country-monitor-copy">
+              <h3>Country of Earth baseline</h3>
+              <p>Only public data is allowed into this ranking. Each country is scored on how completely, consistently, and transparently it publishes the evidence required to model its own reality.</p>
+              <ul>
+                <li>Legal baseline: public sources only</li>
+                <li>Accuracy baseline: publication coverage, recency, conflict rate, and source diversity</li>
+                <li>Incentive baseline: the closer a country gets to 100% trusted self-description, the closer it gets to being crowned Country of Earth</li>
+              </ul>
+            </div>
+            <div class="country-monitor-card">
+              <div class="country-monitor-head">
+                <div>
+                  <p class="eyebrow">International monitoring</p>
+                  <h3>Public data accuracy leaderboard</h3>
+                </div>
+                <div id="country-monitor-note" class="monitor-note"></div>
+              </div>
+              <div id="country-monitor-list" class="country-monitor-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section llm-integration">
+        <div class="content">
+          <h2>LLM integration layer</h2>
+          <p class="journey-copy">Connect your cloud or local AI bot provider to feed the World Scheduler with LLM-generated insight and data notes.</p>
+          <div class="llm-grid">
+            <div class="llm-panel">
+              <h3>Provider settings</h3>
+              <div class="field-row">
+                <label for="llm-provider">LLM provider</label>
+                <select id="llm-provider">
+                  <option value="openai">OpenAI</option>
+                  <option value="local">Local LLM</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <label for="llm-endpoint">Endpoint or device</label>
+                <input type="text" id="llm-endpoint" placeholder="https://api.example.com or local path" />
+              </div>
+              <div class="field-row">
+                <label for="llm-token">API key / token</label>
+                <input type="password" id="llm-token" placeholder="Optional for local providers" />
+              </div>
+              <div class="field-row">
+                <button type="button" id="connect-llm" class="button secondary">Connect LLM</button>
+              </div>
+              <div class="field-row">
+                <div id="llm-status" class="status-box">LLM not connected.</div>
+              </div>
+              <div class="field-row">
+                <label for="llm-prompt">LLM prompt</label>
+                <textarea id="llm-prompt" rows="4" placeholder="Ask the LLM to interpret this era, region, or homeowner data..."></textarea>
+              </div>
+              <div class="field-row">
+                <button type="button" id="send-llm" class="button">Send to LLM</button>
+              </div>
+            </div>
+
+            <div class="llm-output">
+              <h3>LLM output</h3>
+              <div id="llm-response" class="llm-response">
+                <p>Connect an LLM provider and send a prompt to receive integrated insight here.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section member-tools" id="member-tools">
+        <div class="content">
+          <div id="member-tools-gate" class="member-gate">
+            <div class="member-gate-head">
+              <div>
+                <p class="eyebrow">Private planning</p>
+                <h2>Member planning workspace</h2>
+              </div>
+              <div class="member-lock-pill">Locked</div>
+            </div>
+            <p>Create a profile to unlock the calculator and work from your private planning space.</p>
+            <p class="muted-text">The public experience remains a data-first view of the world’s systems, with the calculator reserved for signed-in users.</p>
+          </div>
+
+          <div id="member-tools-body" hidden>
+            <div class="member-dashboard">
+              <div class="member-dashboard-head">
+                <div>
+                  <p class="eyebrow">Private planning</p>
+                  <h2>Member dashboard</h2>
+                </div>
+                <div class="member-lock-pill unlocked">Unlocked</div>
+              </div>
+              <p class="muted-text">Your workspace is ready. Use the calculator and saved scenarios to build and revisit planning models.</p>
+            </div>
+            <div class="asset-reward-grid">
+              <div class="asset-reward-panel">
+                <h2>World engine asset rewards</h2>
+                <p>Upload or register your own objects for the World Engine Selection Preview. If the asset is usable, topology-safe, and legally shareable, the system rewards you with planning credits.</p>
+                <div class="field-row">
+                  <label for="asset-name">Asset name</label>
+                  <input type="text" id="asset-name" placeholder="Example: Modular window panel" />
+                </div>
+                <div class="field-row">
+                  <label for="asset-type">Asset class</label>
+                  <select id="asset-type">
+                    <option value="building">Building</option>
+                    <option value="room">Room</option>
+                    <option value="window" selected>Window</option>
+                    <option value="panel">Panel</option>
+                    <option value="surface">Surface</option>
+                    <option value="topology">Topology primitive set</option>
+                  </select>
+                </div>
+                <div class="field-row">
+                  <label for="asset-detail-score">Detail readiness (%)</label>
+                  <input type="range" id="asset-detail-score" min="0" max="100" step="5" value="80" />
+                  <span id="asset-detail-value">80%</span>
+                </div>
+                <div class="field-row">
+                  <label for="asset-topology-score">Topology quality (%)</label>
+                  <input type="range" id="asset-topology-score" min="0" max="100" step="5" value="75" />
+                  <span id="asset-topology-value">75%</span>
+                </div>
+                <div class="field-row">
+                  <label for="asset-rights-score">Public rights clarity (%)</label>
+                  <input type="range" id="asset-rights-score" min="0" max="100" step="5" value="90" />
+                  <span id="asset-rights-value">90%</span>
+                </div>
+                <div class="field-row">
+                  <button type="button" id="submit-asset" class="button secondary">Register asset for reward</button>
+                </div>
+              </div>
+              <div class="asset-reward-results">
+                <div id="asset-reward-summary" class="result-block"></div>
+                <div id="asset-reward-list" class="result-block"></div>
+              </div>
+            </div>
+            <div class="calculator-grid">
+              <div class="calculator-panel">
+                <h2>World Scheduler Calculator</h2>
+                <p>
+                  Enter population, family needs, current supply, and safety margin. The scheduler
+                  will calculate targets, shortages, labor requirements, and direction suggestions.
+                </p>
+
+                <form id="scheduler-form">
+                  <div class="field-row">
+                    <label for="population">Population or family size</label>
+                    <input type="number" id="population" min="1" value="1000000" />
+                  </div>
+                  <div class="field-row">
+                    <label for="time-era">Time era baseline</label>
+                    <select id="time-era">
+                      <option value="past">Past standard times (1950s-era)</option>
+                      <option value="modern" selected>Modern baseline</option>
+                      <option value="future">Future abundance standard</option>
+                    </select>
+                    <p id="baseline-note" class="field-note">Baseline era sets the starting standard for quotas, needs, and labor expectations.</p>
+                  </div>
+                  <div class="field-row">
+                    <label for="safety-margin">Safety margin</label>
+                    <input type="range" id="safety-margin" min="100" max="200" step="10" value="150" />
+                    <span id="safety-value">150%</span>
+                  </div>
+
+                  <div class="field-row">
+                    <label for="calories">Monthly calories need per person</label>
+                    <input type="number" id="calories" min="1000" value="75000" />
+                  </div>
+                  <div class="field-row">
+                    <label for="water">Monthly water need per person (liters)</label>
+                    <input type="number" id="water" min="1" value="3000" />
+                  </div>
+                  <div class="field-row">
+                    <label for="housing">Monthly housing need per person (sqm)</label>
+                    <input type="number" id="housing" min="1" value="20" />
+                  </div>
+                  <div class="field-row">
+                    <label for="energy">Monthly energy need per person (kWh)</label>
+                    <input type="number" id="energy" min="1" value="300" />
+                  </div>
+                  <div class="field-row">
+                    <label for="medicine">Monthly medicine units per person</label>
+                    <input type="number" id="medicine" min="0" value="1" />
+                  </div>
+                  <div class="field-row">
+                    <label for="materials">Monthly materials need per person (tons)</label>
+                    <input type="number" id="materials" min="0" step="0.01" value="0.15" />
+                  </div>
+                  <div class="field-row">
+                    <label for="robotization">Robot automation percent</label>
+                    <input type="range" id="robotization" min="0" max="100" step="5" value="70" />
+                    <span id="robot-value">70%</span>
+                  </div>
+
+                  <div class="field-row supply">
+                    <h3>Life plan portal</h3>
+                  </div>
+                  <div class="field-row">
+                    <label for="monthly-income">Monthly income or support pool (USD)</label>
+                    <input type="number" id="monthly-income" min="0" value="6500" />
+                  </div>
+                  <div class="field-row">
+                    <label for="essential-cost">Monthly human needs cost (USD)</label>
+                    <input type="number" id="essential-cost" min="0" value="3800" />
+                  </div>
+                  <div class="field-row">
+                    <label for="wants-cost">Monthly wants budget (USD)</label>
+                    <input type="number" id="wants-cost" min="0" value="900" />
+                  </div>
+                  <div class="field-row">
+                    <label for="savings-months">Savings runway (months)</label>
+                    <input type="number" id="savings-months" min="0" step="0.5" value="8" />
+                  </div>
+                  <div class="field-row">
+                    <label for="plan-horizon">Plan horizon (years)</label>
+                    <input type="number" id="plan-horizon" min="1" value="5" />
+                  </div>
+                  <div class="field-row">
+                    <label for="plan-evidence">Plan evidence quality (%)</label>
+                    <input type="range" id="plan-evidence" min="0" max="100" step="5" value="70" />
+                    <span id="evidence-value">70%</span>
+                  </div>
+                  <div class="field-row">
+                    <label for="life-goal">Primary life goal</label>
+                    <select id="life-goal">
+                      <option value="stability" selected>Stability and lower stress</option>
+                      <option value="home">Home ownership or family housing</option>
+                      <option value="education">Education and skill upgrade</option>
+                      <option value="business">Business launch or expansion</option>
+                    </select>
+                  </div>
+
+                  <div class="field-row supply">
+                    <h3>Current available supply</h3>
+                  </div>
+                  <div class="field-row">
+                    <label for="supply-calories">Calories supply (billions)</label>
+                    <input type="number" id="supply-calories" min="0" step="1" value="95" />
+                  </div>
+                  <div class="field-row">
+                    <label for="supply-water">Water supply (billions liters)</label>
+                    <input type="number" id="supply-water" min="0" step="1" value="2500" />
+                  </div>
+                  <div class="field-row">
+                    <label for="supply-housing">Housing supply (million sqm)</label>
+                    <input type="number" id="supply-housing" min="0" step="0.1" value="18" />
+                  </div>
+                  <div class="field-row">
+                    <label for="supply-energy">Energy supply (billion kWh)</label>
+                    <input type="number" id="supply-energy" min="0" step="1" value="280" />
+                  </div>
+                  <div class="field-row">
+                    <label for="supply-medicine">Medicine supply (million units)</label>
+                    <input type="number" id="supply-medicine" min="0" step="1" value="0.9" />
+                  </div>
+                  <div class="field-row">
+                    <label for="supply-materials">Material supply (million tons)</label>
+                    <input type="number" id="supply-materials" min="0" step="0.1" value="120" />
+                  </div>
+
+                  <button type="button" id="calculate-button">Calculate schedule</button>
+                </form>
+              </div>
+
+              <div class="results-panel">
+                <h2>Results</h2>
+                <div id="results-summary" class="result-block"></div>
+                <div id="results-margin" class="result-block"></div>
+                <div id="results-life-plan" class="result-block"></div>
+                <div class="result-block scenario-card">
+                  <h3>Save this scenario</h3>
+                  <div class="field-row">
+                    <label for="scenario-name">Scenario name</label>
+                    <input type="text" id="scenario-name" placeholder="Example: National reserve plan" />
+                  </div>
+                  <div class="scenario-actions">
+                    <button type="button" id="save-scenario" class="button secondary">Save scenario</button>
+                    <button type="button" id="load-latest-scenario" class="button ghost">Load latest</button>
+                  </div>
+                  <div id="scenario-list" class="scenario-list"></div>
+                </div>
+                <div id="scenario-compare-panel" class="result-block" hidden></div>
+                <div id="results-table" class="result-block"></div>
+                <div id="results-action" class="result-block"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section explanation">
+        <div class="content">
+          <h2>How family quota works</h2>
+          <p>
+            The scheduler uses family size, regional needs, health, and activity to build a life plan.
+            Premium quota is possible, but the system flags anything above a normal allowance so the extra is clearly visible.
+          </p>
+          <p>
+            This is where the world scheduler turns raw numbers into a simple life plan: food, housing, energy, medicine, transport, and luxury.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer-shell">
+      <div class="footer-intro">
+        <div class="footer-copy">
+          <p class="eyebrow">Foundation + impact</p>
+          <h2>Build the service at the center of America.</h2>
+          <p>
+            South Dakota or Colorado can anchor the first national planning center, giving every American citizen a practical path to balanced infrastructure, resilient food systems, and fair distribution.
+          </p>
+        </div>
+        <div class="donate-card">
+          <h3>Fund permanent access</h3>
+          <p>Donations launch the system, but paid timed sessions build the operating surplus that keeps World Scheduler and its ground-device fleet alive indefinitely.</p>
+          <a class="button secondary" href="mailto:hello@world-scheduler.org?subject=Fund%20World%20Scheduler">Donate to the initiative</a>
+          <p class="muted-text">The target is a 100-year endowment runway strong enough to fund operations and 1,000,000 embedded field devices forever after that horizon.</p>
+        </div>
+      </div>
+
+      <div class="cost-panel" id="cost-calculator">
+        <div class="cost-grid">
+          <div class="cost-form">
+            <h3>Access funding model</h3>
+            <div class="field-row">
+              <label for="location-select">Location</label>
+              <select id="location-select">
+                <option value="southDakota">South Dakota</option>
+                <option value="colorado">Colorado</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <label for="land-acres">Land area (acres)</label>
+              <input type="number" id="land-acres" min="1" value="5000" />
+            </div>
+            <div class="field-row">
+              <label for="power-demand">Average power demand (MW)</label>
+              <input type="number" id="power-demand" min="1" value="120" />
+            </div>
+            <div class="field-row">
+              <label for="staff-count">Staff and operators</label>
+              <input type="number" id="staff-count" min="1" value="250" />
+            </div>
+            <div class="field-row">
+              <label for="device-count">Ground devices target</label>
+              <input type="number" id="device-count" min="1" value="1000000" />
+            </div>
+            <div class="field-row">
+              <label for="device-unit-cost">Install cost per device (USD)</label>
+              <input type="number" id="device-unit-cost" min="1" value="180" />
+            </div>
+            <div class="field-row">
+              <label for="device-maintenance">Annual upkeep per device (USD)</label>
+              <input type="number" id="device-maintenance" min="0" value="18" />
+            </div>
+            <div class="field-row">
+              <label for="device-service-life">Device service life (years)</label>
+              <input type="number" id="device-service-life" min="1" value="12" />
+            </div>
+            <div class="field-row">
+              <label for="price-per-load">Price per page load (USD)</label>
+              <input type="number" id="price-per-load" min="0" step="0.01" value="0.08" />
+            </div>
+            <div class="field-row">
+              <label for="page-loads-per-session">Page loads per session</label>
+              <input type="number" id="page-loads-per-session" min="1" value="7" />
+            </div>
+            <div class="field-row">
+              <label for="asset-reward-share">Asset reward share of load revenue (%)</label>
+              <input type="number" id="asset-reward-share" min="0" max="100" step="1" value="12" />
+            </div>
+            <div class="field-row">
+              <label for="global-users">Global users target</label>
+              <input type="number" id="global-users" min="1" value="10000000000" />
+            </div>
+            <div class="field-row">
+              <label for="peak-concurrent-users">Peak concurrent humans</label>
+              <input type="number" id="peak-concurrent-users" min="1" value="1000000000" />
+            </div>
+            <div class="field-row">
+              <label for="sessions-per-user-year">Sessions per user per year</label>
+              <input type="number" id="sessions-per-user-year" min="1" value="18" />
+            </div>
+            <div class="field-row">
+              <label for="avg-session-minutes">Average session length (minutes)</label>
+              <input type="number" id="avg-session-minutes" min="1" value="20" />
+            </div>
+            <div class="field-row">
+              <label for="mb-per-session">Data moved per session (MB)</label>
+              <input type="number" id="mb-per-session" min="1" value="45" />
+            </div>
+            <div class="field-row">
+              <label for="session-price">Timed session price (USD)</label>
+              <input type="number" id="session-price" min="1" value="120" />
+            </div>
+            <div class="field-row">
+              <label for="sessions-per-day">Paid sessions per day</label>
+              <input type="number" id="sessions-per-day" min="1" value="180" />
+            </div>
+            <div class="field-row">
+              <label for="annual-donations">Annual donations (USD)</label>
+              <input type="number" id="annual-donations" min="0" value="2500000" />
+            </div>
+            <div class="field-row">
+              <label for="reserve-return">Reserve yield after 100 years (%)</label>
+              <input type="number" id="reserve-return" min="1" max="20" step="0.5" value="4.5" />
+            </div>
+            <div class="field-row">
+              <label for="reserve-growth">Reserve growth rate during first 100 years (%)</label>
+              <input type="number" id="reserve-growth" min="1" max="20" step="0.5" value="5.5" />
+            </div>
+            <button type="button" id="calculate-costs">Estimate funding margin</button>
+          </div>
+
+          <div class="cost-output">
+            <h3>Century-to-perpetuity projection</h3>
+            <div id="cost-results" class="cost-results"></div>
+          </div>
+        </div>
+      </div>
+
+      <p class="footer-note">World Scheduler — Civilizational planning with physical numbers.</p>
+    </footer>
+
+    <script type="module" src="script.js"></script>
+  </body>
+</html>

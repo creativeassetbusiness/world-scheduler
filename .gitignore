@@ -1,0 +1,14 @@
+# dependencies
+node_modules/
+npm-debug.log*
+
+# screenshots / debug images (not part of source)
+*.png
+*.jpg
+*.jpeg
+
+# macOS
+.DS_Store
+
+# editor
+.vscode/settings.json
