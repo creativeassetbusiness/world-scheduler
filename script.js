@@ -1274,11 +1274,13 @@ function renderCostEstimate() {
 }
 
 [locationSelect, landAcresInput, powerDemandInput, staffCountInput, deviceCountInput, deviceUnitCostInput, deviceMaintenanceInput, deviceServiceLifeInput, pricePerLoadInput, pageLoadsPerSessionInput, assetRewardShareInput, globalUsersInput, peakConcurrentUsersInput, sessionsPerUserYearInput, avgSessionMinutesInput, mbPerSessionInput, sessionPriceInput, sessionsPerDayInput, annualDonationsInput, reserveReturnInput, reserveGrowthInput].forEach((element) => {
-  element.addEventListener('input', renderCostEstimate);
-  element.addEventListener('change', renderCostEstimate);
+  if (element) {
+    element.addEventListener('input', renderCostEstimate);
+    element.addEventListener('change', renderCostEstimate);
+  }
 });
 
-calculateCostButton.addEventListener('click', renderCostEstimate);
+if (calculateCostButton) calculateCostButton.addEventListener('click', renderCostEstimate);
 
 const regionData = {
   northAmerica: {
@@ -2300,24 +2302,24 @@ function switchView(viewId) {
 
 function populateProductView() {
   const stats = document.getElementById('product-stats');
-  if (!stats || stats.hasChildNodes()) return;
+  if (!stats) return;
+  if (stats.hasChildNodes() && !stats.querySelector('.loading')) return;
 
-  // Try database first, fall back to hardcoded
-  WorldData.transform('shortfall').then(shortfalls => {
-    if (!shortfalls || !shortfalls.length) {
-      renderProductFallback(stats);
-      return;
-    }
-    // Filter to planet-level modern era
-    const worldData = shortfalls.filter(s => s.entity_id === 'planet:earth' && s.time_period === 'modern');
-    if (!worldData.length) { renderProductFallback(stats); return; }
+  stats.innerHTML = '<div class="loading">Loading product data…</div>';
 
-    stats.innerHTML = worldData.map(s => {
-      const supplyFmt = s.supply > 1e9 ? `${(s.supply/1e9).toFixed(1)}B` : s.supply > 1e6 ? `${(s.supply/1e6).toFixed(1)}M` : s.supply.toLocaleString();
-      const statusIcon = s.status === 'surplus' ? '✓' : '⚠';
-      return `<div class="view-stat"><strong>${supplyFmt}</strong><span>${statusIcon} ${s.resource} ${s.unit}</span></div>`;
-    }).join('');
-  }).catch(() => renderProductFallback(stats));
+  fetch('http://127.0.0.1:8001/api/transform/shortfall')
+    .then(r => r.json())
+    .then(shortfalls => {
+      if (!shortfalls || !shortfalls.length) { renderProductFallback(stats); return; }
+      const worldData = shortfalls.filter(s => s.entity_id === 'planet:earth' && s.time_period === 'modern');
+      if (!worldData.length) { renderProductFallback(stats); return; }
+
+      stats.innerHTML = worldData.map(s => {
+        const supplyFmt = s.supply > 1e9 ? `${(s.supply/1e9).toFixed(1)}B` : s.supply > 1e6 ? `${(s.supply/1e6).toFixed(1)}M` : s.supply.toLocaleString();
+        const statusIcon = s.status === 'surplus' ? '✓' : '⚠';
+        return `<div class="view-stat"><strong>${supplyFmt}</strong><span>${statusIcon} ${s.resource} ${s.unit}</span></div>`;
+      }).join('');
+    }).catch(() => renderProductFallback(stats));
 }
 
 function renderProductFallback(stats) {
@@ -2330,9 +2332,11 @@ function renderProductFallback(stats) {
 
 function populateLabourView() {
   const stats = document.getElementById('labour-stats');
-  if (!stats || stats.hasChildNodes()) return;
+  if (!stats) return;
+  if (stats.hasChildNodes() && !stats.querySelector('.loading')) return;
 
-  // Fetch industry×technique comparison from database
+  stats.innerHTML = '<div class="loading">Loading labour data…</div>';
+
   fetch('http://127.0.0.1:8001/api/labour-techniques')
     .then(r => r.json())
     .then(data => {
