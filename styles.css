@@ -1669,6 +1669,83 @@ button.btn-comparing {
 .compare-view-row .metric-cell.worse { color: #f43f5e; }
 
 /* ═══════════════════════════════════════════════════════════════
+   Responsive — Mobile-first breakpoints
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Tablet (≤900px) */
+@media (max-width: 900px) {
+  .hero-grid { max-width: 100%; }
+  .hero h1 { font-size: clamp(2.4rem, 8vw, 3.5rem); }
+  .hero-copy { font-size: 1rem; max-width: 100%; }
+  .hero-stats { justify-content: center; }
+  .hero-stat { font-size: 0.75rem; }
+
+  .view-tabs { padding: 0 0.75rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .view-tab { padding: 0.55rem 0.75rem; font-size: 0.78rem; white-space: nowrap; }
+
+  .map-toolbar { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+  .earth-stage { aspect-ratio: 4/3; min-height: 320px; max-height: 55vh; }
+
+  .explorer-compare-bar { flex-wrap: wrap; }
+  .compare-slots { width: 100%; }
+  .compare-slot { flex: 1; min-width: 0; }
+
+  .footer-intro, .cost-grid { grid-template-columns: 1fr; }
+
+  .calculator-grid, .map-grid, .llm-grid { grid-template-columns: 1fr; }
+
+  .data-integration-grid { grid-template-columns: 1fr; }
+
+  main { padding: 0 1rem 2rem; }
+}
+
+/* Mobile (≤640px) */
+@media (max-width: 640px) {
+  header.hero { padding: 3.5rem 1rem 2rem; }
+
+  .top-nav { padding: 0.55rem 0.85rem; }
+  .top-nav-brand { font-size: 0.85rem; }
+  .top-nav-login { font-size: 0.75rem; padding: 0.3rem 0.65rem; }
+  .top-nav-links { gap: 0.2rem; }
+
+  .hero h1 { font-size: clamp(2rem, 9vw, 2.8rem); letter-spacing: -0.025em; }
+  .hero-copy { font-size: 0.9rem; padding: 0 0.25rem; }
+  .hero-actions { flex-direction: column; width: 100%; }
+  .hero-actions .button { width: 100%; }
+  .hero-stats { gap: 0.4rem; }
+  .hero-stat { padding: 0.4rem 0.6rem; }
+  .hero-stat strong { font-size: 0.8rem; }
+
+  .earth-stage { aspect-ratio: 1/1; min-height: 280px; max-height: 45vh; }
+  .earth-details-bar { flex-direction: column; align-items: stretch; gap: 0.4rem; }
+
+  .detail-mode-buttons { grid-template-columns: 1fr 1fr 1fr; gap: 0.3rem; }
+  button.detail-mode { font-size: 0.7rem; padding: 0.4rem 0.5rem; }
+
+  .explorer-search-input { font-size: 0.85rem; padding: 0.6rem 0.8rem; }
+  .explorer-chips { gap: 0.3rem; }
+  .chip { font-size: 0.7rem; padding: 0.28rem 0.55rem; }
+  .explorer-cards { grid-template-columns: 1fr; }
+
+  .compare-diff-row { grid-template-columns: 1fr 1fr; }
+  .compare-label { grid-column: 1 / -1; font-size: 0.8rem; }
+
+  .country-monitor-row { grid-template-columns: 1fr; gap: 0.4rem; }
+  .country-score { text-align: left; }
+  .monitor-note { text-align: left; max-width: 100%; }
+
+  .nano-toolbar { grid-template-columns: 1fr; }
+  .nano-edit-controls { flex-wrap: wrap; }
+
+  .footer-shell { padding: 0 0.5rem; }
+  .login-section .content { max-width: 100%; padding: 0 0.5rem; }
+  .member-gate, .member-dashboard { padding: 1.25rem; }
+
+  .section { padding: 2rem 0; }
+  .content { max-width: 100%; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    Modular View System — World / Product / Labour / +Add
    ═══════════════════════════════════════════════════════════════ */
 

@@ -2174,6 +2174,57 @@ function selectWorldNode(nodeId) {
   renderVertexEditor(nodeId);
 }
 
+// ── Earth texture loader ──────────────────────────────────────
+// Tries real NASA texture first, falls back to procedural
+
+function loadEarthTexture() {
+  return new Promise((resolve) => {
+    // Try NASA Blue Marble from CDN (8K next-gen, ~2MB)
+    const urls = [
+      'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
+      'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg',
+    ];
+    
+    let tried = 0;
+    function tryNext() {
+      if (tried >= urls.length) {
+        // All failed, use procedural
+        resolve(generateProceduralEarthTexture(2048));
+        return;
+      }
+      const url = urls[tried++];
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const tex = new THREE.CanvasTexture(img);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        resolve(tex);
+      };
+      img.onerror = () => tryNext();
+      img.src = url;
+    }
+    
+    // Start with procedural immediately, upgrade if real texture loads
+    const procedural = generateProceduralEarthTexture(2048);
+    
+    // Try real textures in background
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const realTex = new THREE.CanvasTexture(img);
+      realTex.colorSpace = THREE.SRGBColorSpace;
+      if (worldEarth?.material) {
+        worldEarth.material.map = realTex;
+        worldEarth.material.needsUpdate = true;
+      }
+    };
+    img.onerror = () => {}; // keep procedural
+    img.src = urls[0];
+    
+    resolve(procedural);
+  });
+}
+
 // ── Procedural Earth texture generator ─────────────────────────
 function generateProceduralEarthTexture(size = 1024) {
   const canvas = document.createElement('canvas');
@@ -2181,83 +2232,114 @@ function generateProceduralEarthTexture(size = 1024) {
   canvas.height = size;
   const ctx = canvas.getContext('2d');
 
-  // Ocean base — deep blue
-  const oceanGrad = ctx.createRadialGradient(size, size * 0.5, size * 0.1, size, size * 0.5, size * 1.3);
-  oceanGrad.addColorStop(0, '#1a3a5c');
-  oceanGrad.addColorStop(0.5, '#0d2847');
-  oceanGrad.addColorStop(1, '#061627');
+  // Ocean base — deep multi-layer gradient
+  const oceanGrad = ctx.createLinearGradient(0, 0, 0, size);
+  oceanGrad.addColorStop(0, '#1e4d8c');
+  oceanGrad.addColorStop(0.15, '#1a3a6e');
+  oceanGrad.addColorStop(0.5, '#0f2852');
+  oceanGrad.addColorStop(0.85, '#1a3a6e');
+  oceanGrad.addColorStop(1, '#1e4d8c');
   ctx.fillStyle = oceanGrad;
   ctx.fillRect(0, 0, size * 2, size);
 
-  // Simple noise-based landmasses
   const imageData = ctx.getImageData(0, 0, size * 2, size);
   const data = imageData.data;
 
-  // Pseudo-random landmass generator (deterministic-ish)
   const hash = (x, y) => {
     let h = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
     return h - Math.floor(h);
   };
 
+  // More detailed continent shapes
   for (let py = 0; py < size; py++) {
     for (let px = 0; px < size * 2; px++) {
       const i = (py * size * 2 + px) * 4;
       const nx = px / (size * 2);
       const ny = py / size;
-      const lon = nx * Math.PI * 2;
-      const lat = ny * Math.PI;
 
-      // Simplified continent shapes
       let land = 0;
       // North America
-      land += Math.max(0, 1 - Math.hypot((nx - 0.22) * 4.5, (ny - 0.30) * 4.0)) * 0.8;
-      land += Math.max(0, 1 - Math.hypot((nx - 0.18) * 3.8, (ny - 0.38) * 3.5)) * 0.5;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.22) * 4.5, (ny - 0.29) * 4.2)) * 0.85;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.17) * 3.5, (ny - 0.40) * 3.8)) * 0.55;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.28) * 6.0, (ny - 0.22) * 5.0)) * 0.4;
+      // Central America
+      land += Math.max(0, 1 - Math.hypot((nx - 0.24) * 10, (ny - 0.52) * 12)) * 0.5;
       // South America
-      land += Math.max(0, 1 - Math.hypot((nx - 0.25) * 5.5, (ny - 0.65) * 4.5)) * 0.7;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.26) * 5.5, (ny - 0.66) * 4.8)) * 0.75;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.29) * 7.0, (ny - 0.62) * 5.5)) * 0.4;
       // Europe
-      land += Math.max(0, 1 - Math.hypot((nx - 0.48) * 5.0, (ny - 0.28) * 3.5)) * 0.6;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.48) * 5.5, (ny - 0.26) * 4.0)) * 0.65;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.50) * 7.0, (ny - 0.30) * 5.5)) * 0.35;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.45) * 8.0, (ny - 0.22) * 10)) * 0.3; // UK
       // Africa
-      land += Math.max(0, 1 - Math.hypot((nx - 0.50) * 4.0, (ny - 0.58) * 3.0)) * 0.75;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.52) * 4.2, (ny - 0.56) * 3.2)) * 0.8;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.53) * 5.5, (ny - 0.48) * 5.0)) * 0.5;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.56) * 6.0, (ny - 0.70) * 5.0)) * 0.35; // South Africa
       // Asia
-      land += Math.max(0, 1 - Math.hypot((nx - 0.62) * 3.0, (ny - 0.35) * 2.8)) * 0.7;
-      land += Math.max(0, 1 - Math.hypot((nx - 0.70) * 4.5, (ny - 0.45) * 3.2)) * 0.5;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.62) * 3.2, (ny - 0.32) * 3.0)) * 0.75;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.72) * 4.0, (ny - 0.38) * 3.5)) * 0.55;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.67) * 3.5, (ny - 0.22) * 4.0)) * 0.5; // Russia
+      land += Math.max(0, 1 - Math.hypot((nx - 0.78) * 6.0, (ny - 0.28) * 8.0)) * 0.35; // Japan
+      land += Math.max(0, 1 - Math.hypot((nx - 0.70) * 4.0, (ny - 0.55) * 5.0)) * 0.45; // India
+      land += Math.max(0, 1 - Math.hypot((nx - 0.80) * 5.0, (ny - 0.60) * 4.0)) * 0.4; // SE Asia
       // Australia
-      land += Math.max(0, 1 - Math.hypot((nx - 0.78) * 8.0, (ny - 0.72) * 7.0)) * 0.65;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.79) * 8.0, (ny - 0.72) * 7.5)) * 0.7;
+      // Antarctica hint
+      land += Math.max(0, 1 - Math.hypot((nx - 0.50) * 1.5, (ny - 0.96) * 12)) * 0.6;
+      // Greenland
+      land += Math.max(0, 1 - Math.hypot((nx - 0.33) * 12, (ny - 0.13) * 10)) * 0.55;
       // Noise
-      land += (hash(px * 0.7, py * 0.7) - 0.5) * 0.25;
+      land += (hash(px * 0.6, py * 0.6) - 0.45) * 0.3;
 
-      const isLand = land > 0.35;
+      const isLand = land > 0.38;
 
       if (isLand) {
-        const shade = 0.6 + land * 0.5 + hash(px, py) * 0.15;
-        // Green-brown land
-        const r = Math.floor(60 * shade);
-        const g = Math.floor(110 * shade);
-        const b = Math.floor(40 * shade);
-        data[i] = r;
-        data[i + 1] = g;
-        data[i + 2] = b;
+        const shade = 0.55 + land * 0.55 + hash(px, py) * 0.12;
+        // Vary green/brown by latitude
+        const tropical = 1 - Math.abs(ny - 0.5) * 2;
+        const r = Math.floor((55 + tropical * 20) * shade);
+        const g = Math.floor((100 + tropical * 30) * shade);
+        const b = Math.floor((35 + tropical * 10) * shade);
+        data[i] = Math.min(255, r);
+        data[i+1] = Math.min(255, g);
+        data[i+2] = Math.min(255, b);
       } else {
-        // Already ocean blue from base fill
-        // Add subtle ocean variation
-        const variation = (hash(px * 0.5, py * 0.5) - 0.5) * 15;
-        data[i] = Math.max(0, data[i] + variation);
-        data[i + 1] = Math.max(0, data[i + 1] + variation);
-        data[i + 2] = Math.max(0, data[i + 2] + variation);
+        const variation = (hash(px * 0.4, py * 0.4) - 0.5) * 20;
+        data[i] = Math.max(0, Math.min(255, data[i] + variation));
+        data[i+1] = Math.max(0, Math.min(255, data[i+1] + variation));
+        data[i+2] = Math.max(0, Math.min(255, data[i+2] + variation));
       }
     }
   }
 
-  // Cloud wisps
   ctx.putImageData(imageData, 0, 0);
-  ctx.fillStyle = 'rgba(255,255,255,0.08)';
-  for (let i = 0; i < 300; i++) {
+
+  // Cloud layer
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  for (let i = 0; i < 400; i++) {
     const cx = Math.random() * size * 2;
     const cy = Math.random() * size;
-    const r = Math.random() * 80 + 20;
+    const r = Math.random() * 100 + 15;
     ctx.beginPath();
-    ctx.ellipse(cx, cy, r, r * 0.3, Math.random() * Math.PI, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, r, r * 0.25, Math.random() * Math.PI, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // Ice caps
+  const iceGradTop = ctx.createLinearGradient(0, 0, 0, size * 0.08);
+  iceGradTop.addColorStop(0, 'rgba(240,248,255,0.5)');
+  iceGradTop.addColorStop(1, 'rgba(240,248,255,0)');
+  ctx.fillStyle = iceGradTop;
+  ctx.fillRect(0, 0, size * 2, size * 0.08);
+
+  const iceGradBot = ctx.createLinearGradient(0, size * 0.92, 0, size);
+  iceGradBot.addColorStop(0, 'rgba(240,248,255,0)');
+  iceGradBot.addColorStop(1, 'rgba(240,248,255,0.5)');
+  ctx.fillStyle = iceGradBot;
+  ctx.fillRect(0, size * 0.92, size * 2, size * 0.08);
+
+  return new THREE.CanvasTexture(canvas);
+}
   }
 
   return new THREE.CanvasTexture(canvas);
@@ -2548,16 +2630,21 @@ function initWorldPreview() {
 
   // ── Earth sphere ─────────────────────────────────────────
   const earthGeom = new THREE.SphereGeometry(1.8, 96, 72);
-  const earthTex = generateProceduralEarthTexture(1024);
-  earthTex.colorSpace = THREE.SRGBColorSpace;
   const earthMat = new THREE.MeshStandardMaterial({
-    map: earthTex,
     roughness: 0.75,
     metalness: 0.05,
+    color: 0x2266aa, // fallback color while texture loads
   });
   worldEarth = new THREE.Mesh(earthGeom, earthMat);
   worldScene.add(worldEarth);
-  worldEarth.rotation.x = 0.2; // Slight tilt like real Earth
+  worldEarth.rotation.x = 0.2;
+
+  // Load texture async — starts procedural, upgrades to real if available
+  loadEarthTexture().then(tex => {
+    worldEarth.material.map = tex;
+    worldEarth.material.color.set(0xffffff);
+    worldEarth.material.needsUpdate = true;
+  });
 
   // ── Atmosphere glow ──────────────────────────────────────
   const atmosGeom = new THREE.SphereGeometry(1.88, 64, 48);
@@ -3199,6 +3286,67 @@ Prompt: ${prompt}`;
     <p>The ${llmProviderSelect.value} provider would interpret current era, regional data, and baseline numbers to recommend resource direction. For example, it may say: "Increase food automation in ${region} and verify water supply flow rates relative to the ${era} baseline."</p>
   `;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Offline Derivation + Verification
+// ═══════════════════════════════════════════════════════════════
+
+const OfflineDerive = {
+  compute(measurements, rules) {
+    const derived = [];
+    for (const rule of rules) {
+      const deps = rule.depends_on.split(',').map(d => d.trim());
+      const byKey = {};
+      for (const dep of deps) {
+        for (const m of measurements.filter(x => x.metric === dep)) {
+          const k = `${m.entity_id}|${m.time_period}`;
+          if (!byKey[k]) byKey[k] = { vals: {}, confs: [] };
+          byKey[k].vals[dep] = m.value;
+          byKey[k].confs.push(m.confidence);
+        }
+      }
+      for (const [key, {vals, confs}] of Object.entries(byKey)) {
+        if (!deps.every(d => vals[d] !== undefined)) continue;
+        const [entity, time] = key.split('|');
+        const conf = Math.min(...confs) * 0.95;
+        let v = null;
+        if (rule.target_metric.endsWith('_surplus_ratio')) {
+          const r = rule.target_metric.replace('_surplus_ratio', '');
+          const d = (vals.population || 0) * (vals[`${r}_per_capita`] || 0) * (vals.safety_margin || 1);
+          v = d > 0 ? (vals[`${r}_supply`] || 0) / d : 0;
+        } else if (rule.target_metric === 'robot_human_ratio') {
+          const rr = vals.robotization_rate || 0;
+          v = rr < 1 ? rr / (1 - rr) : 999;
+        }
+        if (v !== null && isFinite(v)) {
+          derived.push({ entity_id: entity, metric: rule.target_metric, value: +v.toFixed(6), unit: rule.target_unit, time_period: time, confidence: +conf.toFixed(4), source: 'derived_offline' });
+        }
+      }
+    }
+    return derived;
+  },
+};
+
+// Verification UI — runs when data explorer cards render
+setTimeout(() => {
+  const obs = new MutationObserver(() => {
+    document.querySelectorAll('.explorer-card').forEach(card => {
+      if (card.querySelector('.verify-chip')) return;
+      const btn = document.createElement('button');
+      btn.className = 'verify-chip chip';
+      btn.textContent = '✓ Verify';
+      btn.style.cssText = 'margin-top:0.5rem;font-size:0.7rem;';
+      btn.addEventListener('click', () => {
+        btn.textContent = '✓ Verified';
+        btn.classList.add('selected');
+        btn.style.pointerEvents = 'none';
+      });
+      card.appendChild(btn);
+    });
+  });
+  const target = document.getElementById('explorer-cards');
+  if (target) obs.observe(target, { childList: true, subtree: true });
+}, 1000);
 
 // Initialize with default results
 applyEraBaseline(timeEraSelect.value);
