@@ -1,4 +1,79 @@
 import * as THREE from './node_modules/three/build/three.module.js';
+import { db } from './db/client.js';
+
+// ── Database Bridge ────────────────────────────────────────────
+// Queries SQLite API when available; falls back to hardcoded data.
+// All transforms (shortfall, labor, cost, rank, trend, compare, etc.)
+// are computed server-side via SQL views.
+
+const WorldData = {
+  _ready: false,
+
+  async init() {
+    await db._available;
+    this._ready = true;
+    if (db._online) {
+      console.log('[WorldData] Connected to SQLite database.');
+      await this.refreshMetrics();
+    } else {
+      console.log('[WorldData] Offline mode — using hardcoded data.');
+    }
+  },
+
+  async refreshMetrics() {
+    if (!db._online) return;
+    const metrics = await db.metrics();
+    this._metricList = metrics;
+    console.log(`[WorldData] ${metrics.length} metrics available.`);
+  },
+
+  /** Get measurements for an entity, optionally filtered by metric pattern */
+  async getMeasurements(entityId, metricPattern) {
+    if (!db._online) return null;
+    const all = await db.measurements({ entity_id: entityId });
+    if (!metricPattern) return all;
+    return all.filter(m => m.metric.includes(metricPattern));
+  },
+
+  /** Run a named transform and return results */
+  async transform(name) {
+    if (!db._online) return null;
+    return await db.transform(name);
+  },
+
+  /** Get shortfall for a specific entity */
+  async shortfalls(entityId) {
+    if (!db._online) return null;
+    return await db.shortfalls(entityId);
+  },
+
+  /** Get world summary (population + shortfalls + labor + cost) */
+  async worldSummary() {
+    if (!db._online) return null;
+    return await db.worldSummary();
+  },
+
+  /** Compare two entities */
+  async compare(a, b) {
+    if (!db._online) return null;
+    return await db.compare(a, b);
+  },
+
+  /** Rank entities by metric */
+  async rank(metric) {
+    if (!db._online) return null;
+    return await db.rank(metric);
+  },
+
+  /** Trend over time */
+  async trend(entityId, metric) {
+    if (!db._online) return null;
+    return await db.trend(entityId, metric);
+  },
+};
+
+// Initialize database connection (non-blocking)
+WorldData.init();
 
 const form = document.getElementById('scheduler-form');
 const safetyValue = document.getElementById('safety-value');
@@ -21,6 +96,8 @@ const profileNameInput = document.getElementById('profile-name');
 const profileEmailInput = document.getElementById('profile-email');
 const profileTypeSelect = document.getElementById('profile-type');
 const profileSummary = document.getElementById('profile-summary');
+const profilePanel = document.getElementById('login-section');
+const topLoginButton = document.getElementById('top-login-button');
 const resultsMargin = document.getElementById('results-margin');
 const llmProviderSelect = document.getElementById('llm-provider');
 const llmEndpointInput = document.getElementById('llm-endpoint');
@@ -179,13 +256,25 @@ assetRightsScoreInput?.addEventListener('input', () => {
 
 timeEraSelect.addEventListener('change', () => applyEraBaseline(timeEraSelect.value));
 
-llmConnectButton.addEventListener('click', () => {
-  connectLLM();
-});
+// Login / profile section toggle
+if (topLoginButton && profilePanel) {
+  topLoginButton.addEventListener('click', (e) => {
+    e.preventDefault();
+    const isOpen = !profilePanel.hidden;
+    if (isOpen) {
+      profilePanel.hidden = true;
+      topLoginButton.textContent = 'Login';
+    } else {
+      profilePanel.hidden = false;
+      topLoginButton.textContent = 'Close';
+      profilePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+}
 
-llmSendButton.addEventListener('click', () => {
-  sendLLMRequest();
-});
+// LLM integration — inactive until section is un-commented
+if (llmConnectButton) llmConnectButton.addEventListener('click', () => { connectLLM(); });
+if (llmSendButton) llmSendButton.addEventListener('click', () => { sendLLMRequest(); });
 
 saveProfileButton.addEventListener('click', () => {
   saveProfile();
@@ -368,6 +457,26 @@ document.getElementById('calculate-button').addEventListener('click', () => {
   resultsTable.innerHTML = `<h3>Resource status</h3>${tableRows}${laborSummary}`;
   resultsAction.innerHTML = `<h3>Direction suggestions</h3>${actionLines}`;
   updateProfileSummary();
+
+  // ── Database-verified cross-check (async, non-blocking) ──
+  WorldData.shortfalls('planet:earth').then(dbShortfalls => {
+    if (!dbShortfalls || !dbShortfalls.length) return;
+    const dbSection = document.getElementById('results-db-crosscheck');
+    if (!dbSection) return;
+    const rows = dbShortfalls.map(s => {
+      const shortfallFmt = Math.abs(s.shortfall) > 1e9
+        ? `${(Math.abs(s.shortfall) / 1e9).toFixed(1)}B`
+        : `${(Math.abs(s.shortfall) / 1e6).toFixed(1)}M`;
+      const statusIcon = s.status === 'surplus' ? '✓' : '⚠';
+      const statusClass = s.status === 'surplus' ? 'good' : 'danger';
+      return `<div class="compare-diff-row">
+        <span class="compare-label">${capitalize(s.resource)}</span>
+        <span class="status-chip status-${statusClass}">${statusIcon} ${s.status}</span>
+        <span class="diff-neutral">Δ ${shortfallFmt} ${s.unit} (${(s.confidence * 100).toFixed(0)}% confidence)</span>
+      </div>`;
+    }).join('');
+    dbSection.innerHTML = `<h3>Database cross-check <span class="badge badge-db" title="SQLite via API">🗄️ DB</span></h3>${rows}`;
+  }).catch(() => {});
 });
 
 function getUnit(key) {
@@ -544,6 +653,238 @@ function renderCountryMonitor() {
   const leader = rankedCountries[0];
   countryMonitorNote.textContent = `${leader.country} currently leads the public-data baseline at ${leader.assessment.score}% measurable national self-description.`;
 }
+
+// ── Data Explorer — Google Trends-style ──────────────────────
+
+const explorerState = {
+  query: '',
+  compareSet: [],      // up to 3 entity/metric IDs
+  suggestions: [],
+  activeSuggestion: -1,
+};
+
+let _explorerIndex = null;
+function getExplorerIndex() {
+  if (!_explorerIndex) _explorerIndex = buildExplorerIndex();
+  return _explorerIndex;
+}
+
+// Build searchable index from all measurements
+function buildExplorerIndex() {
+  const index = [];
+  // Countries — use ISO codes to match chip data attributes
+  const countryCodes = { Estonia: 'EE', Denmark: 'DK', 'New Zealand': 'NZ', Canada: 'CA', Japan: 'JP' };
+  publicCountryBaseline.forEach(c => {
+    const code = countryCodes[c.country] || c.country.substring(0,2).toUpperCase();
+    index.push({ id: `country:${code}`, label: c.country, type: 'country', keywords: [c.country.toLowerCase(), code.toLowerCase()], metrics: c });
+  });
+  // Regions
+  Object.entries(regionData).forEach(([key, r]) => {
+    index.push({ id: `region:${key}`, label: r.label, type: 'region', keywords: [key.toLowerCase(), r.label.toLowerCase()], metrics: r.stats });
+  });
+  // Metrics from measurement table — base + derived
+  const metricSet = new Set([
+    'calories_per_capita','water_per_capita','housing_per_capita','energy_per_capita','medicine_per_capita','materials_per_capita',
+    'calories_supply','water_supply','housing_supply','energy_supply','medicine_supply','materials_supply',
+    'population','robotization_rate','safety_margin',
+    'data_coverage','data_recency','data_source_diversity','data_consistency','data_machine_readability',
+    // Derived — ratios
+    'calories_per_capita_supply','water_per_capita_supply','housing_per_capita_supply','energy_per_capita_supply','medicine_per_capita_supply','materials_per_capita_supply',
+    'calories_surplus_ratio','water_surplus_ratio','housing_surplus_ratio','energy_surplus_ratio','medicine_surplus_ratio','materials_surplus_ratio',
+    'robot_human_ratio','resource_intensity_gap','labor_per_capita',
+    'calories_cost_per_capita','water_cost_per_capita','housing_cost_per_capita','energy_cost_per_capita','medicine_cost_per_capita','materials_cost_per_capita',
+    'calories_labor_productivity','water_labor_productivity','housing_labor_productivity','energy_labor_productivity',
+    // Derived — compound
+    'calories_per_labor_hour','water_per_labor_hour','energy_per_labor_hour','labor_cost_share',
+    // Derived — indices
+    'food_security_index','water_security_index','energy_security_index','housing_security_index','overall_resource_security',
+    'resource_diversity_index','automation_potential_index','sustainability_proxy',
+    'human_development_proxy','growth_capacity_index','work_burden_index',
+    'civilization_efficiency_index','resilience_margin',
+    'world_stewardship_score','sacrifice_visibility_index','abundance_ceiling',
+  ]);
+  metricSet.forEach(m => {
+    const label = m.replace(/_/g, ' ').replace(/data /g, '');
+    index.push({ id: `metric:${m}`, label, type: 'metric', keywords: [m.toLowerCase(), label.toLowerCase()] });
+  });
+  return index;
+}
+
+function searchExplorer(query) {
+  if (!query || query.length < 1) return [];
+  const q = query.toLowerCase();
+  return getExplorerIndex()
+    .filter(item => item.keywords.some(k => k.includes(q)))
+    .slice(0, 8);
+}
+
+
+function renderSuggestions(suggestions) {
+  const el = document.getElementById('data-search-suggestions');
+  if (!el) return;
+  if (!suggestions.length) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = suggestions.map((s, i) => `
+    <div class="suggestion-item${i === explorerState.activeSuggestion ? ' active' : ''}" data-index="${i}">
+      <span class="suggestion-type">${s.type}</span>
+      <span>${s.label}</span>
+    </div>
+  `).join('');
+}
+
+function selectExplorerItem(item) {
+  if (!item) return;
+  if (explorerState.compareSet.length >= 3) explorerState.compareSet.shift();
+  explorerState.compareSet.push(item.id);
+  const input = document.getElementById('data-search');
+  if (input) input.value = '';
+  const sugg = document.getElementById('data-search-suggestions');
+  if (sugg) sugg.hidden = true;
+  updateCompareSlots();
+  renderExplorerView();
+}
+
+function removeCompareItem(index) {
+  explorerState.compareSet.splice(index, 1);
+  updateCompareSlots();
+  renderExplorerView();
+}
+
+function updateCompareSlots() {
+  const sl = document.getElementById('compare-slots');
+  const clr = document.getElementById('compare-clear');
+  if (!sl) return;
+  sl.querySelectorAll('.compare-slot').forEach((slot, i) => {
+    const itemId = explorerState.compareSet[i];
+    if (itemId) {
+      const item = getExplorerIndex().find(x => x.id === itemId);
+      slot.className = 'compare-slot filled';
+      slot.innerHTML = `${item?.label || itemId} <span class="slot-remove" data-idx="${i}">&times;</span>`;
+    } else {
+      slot.className = 'compare-slot empty';
+      slot.textContent = '+ Add';
+    }
+  });
+  if (clr) clr.hidden = explorerState.compareSet.length === 0;
+  sl.querySelectorAll('.slot-remove').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); removeCompareItem(Number(btn.dataset.idx)); });
+  });
+}
+
+function renderExplorerView() {
+  const lb = document.getElementById('explorer-leaderboard');
+  const cards = document.getElementById('explorer-cards');
+  const cv = document.getElementById('explorer-compare-view');
+  if (explorerState.compareSet.length === 0) {
+    if (lb) lb.hidden = false;
+    if (cards) cards.hidden = true;
+    if (cv) cv.hidden = true;
+    return;
+  }
+  if (lb) lb.hidden = true;
+  if (explorerState.compareSet.length === 1) {
+    const item = getExplorerIndex().find(x => x.id === explorerState.compareSet[0]);
+    if (item && cards) { cards.hidden = false; cards.innerHTML = renderExplorerCard(item); }
+    if (cv) cv.hidden = true;
+  } else {
+    if (cards) cards.hidden = true;
+    if (cv) { cv.hidden = false; renderExplorerCompareTable(); }
+  }
+}
+
+function renderExplorerCard(item) {
+  const entries = Object.entries(item.metrics || {});
+  const rows = entries.length ? entries.map(([k, v]) => {
+    const val = typeof v === 'number' ? (v < 1 ? (v*100).toFixed(0)+'%' : v.toLocaleString()) : v;
+    return `<div class="metric-row"><span class="metric-label">${k.replace(/_/g,' ')}</span><span class="metric-value">${val}</span></div>`;
+  }).join('') : '<p class="metric-label">No metrics available.</p>';
+  return `<div class="explorer-card"><h3>${item.label}</h3><p class="card-type">${item.type}</p>${rows}</div>`;
+}
+
+function renderExplorerCompareTable() {
+  const cv = document.getElementById('explorer-compare-view');
+  if (!cv) return;
+  const items = explorerState.compareSet.map(id => getExplorerIndex().find(x => x.id === id)).filter(Boolean);
+  if (items.length < 2) return;
+  const metricKeys = [...new Set(items.flatMap(item => Object.keys(item.metrics || {})))];
+  cv.innerHTML = `
+    <div class="compare-view-header"><span>Metric</span>${items.map(i => `<span>${i.label}</span>`).join('')}</div>
+    ${metricKeys.map(key => {
+      const vals = items.map(item => item.metrics?.[key]);
+      const nums = vals.filter(v => typeof v === 'number');
+      const best = nums.length>1 ? Math.max(...nums) : null;
+      const worst = nums.length>1 ? Math.min(...nums) : null;
+      return `<div class="compare-view-row"><span class="metric-label">${key.replace(/_/g,' ')}</span>
+        ${vals.map(v => {
+          let cls = ''; if (typeof v === 'number' && nums.length>1) { if (v===best) cls='better'; else if (v===worst) cls='worse'; }
+          const d = typeof v === 'number' ? (v<1 ? (v*100).toFixed(0)+'%' : v.toLocaleString()) : (v||'—');
+          return `<span class="metric-cell ${cls}">${d}</span>`;
+        }).join('')}</div>`;
+    }).join('')}
+  `;
+}
+
+function initDataExplorer() {
+  const input = document.getElementById('data-search');
+  const sugg = document.getElementById('data-search-suggestions');
+  if (!input) return;
+
+  // ── Global event delegation (robust, no element timing issues) ──
+  document.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-chip]');
+    if (chip) {
+      const item = getExplorerIndex().find(x => x.id === chip.dataset.chip);
+      if (item) selectExplorerItem(item);
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+      return;
+    }
+    const slotRemove = e.target.closest('.slot-remove');
+    if (slotRemove) {
+      removeCompareItem(Number(slotRemove.dataset.idx));
+      return;
+    }
+    const suggItem = e.target.closest('.suggestion-item');
+    if (suggItem && explorerState.suggestions[Number(suggItem.dataset.index)]) {
+      selectExplorerItem(explorerState.suggestions[Number(suggItem.dataset.index)]);
+      return;
+    }
+    if (e.target.closest('#compare-clear')) {
+      explorerState.compareSet = []; updateCompareSlots(); renderExplorerView();
+      return;
+    }
+  });
+
+  input.addEventListener('input', () => {
+    explorerState.query = input.value.trim();
+    explorerState.activeSuggestion = -1;
+    explorerState.suggestions = searchExplorer(explorerState.query);
+    renderSuggestions(explorerState.suggestions);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    const s = explorerState.suggestions;
+    if (!s.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); explorerState.activeSuggestion = Math.min(explorerState.activeSuggestion+1, s.length-1); renderSuggestions(s); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); explorerState.activeSuggestion = Math.max(explorerState.activeSuggestion-1, 0); renderSuggestions(s); }
+    else if (e.key === 'Enter') { e.preventDefault(); const idx = explorerState.activeSuggestion >= 0 ? explorerState.activeSuggestion : 0; if (s[idx]) selectExplorerItem(s[idx]); }
+    else if (e.key === 'Escape') { if (sugg) sugg.hidden = true; }
+  });
+
+  input.addEventListener('blur', () => { setTimeout(() => { if (sugg) sugg.hidden = true; }, 150); });
+
+  renderExplorerView();
+  updateCompareSlots();
+}
+
+// Call after DOM ready
+(function() {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDataExplorer);
+  } else {
+    initDataExplorer();
+  }
+})();
 
 function getAssetContributionStorage() {
   return JSON.parse(localStorage.getItem('worldSchedulerAssets') || '[]');
@@ -1046,13 +1387,24 @@ const worldModeConfig = {
 };
 
 const worldAnchorConfig = {
-  northAmerica: { color: 0x38bdf8, position: [1.3, 1.0, 0.35] },
-  southAmerica: { color: 0x22c55e, position: [0.7, -1.1, 0.2] },
-  europe: { color: 0xf59e0b, position: [1.6, 0.95, 0.3] },
-  africa: { color: 0xf43f5e, position: [1.3, -0.15, -0.2] },
-  asia: { color: 0xa78bfa, position: [2.0, 0.55, 0.1] },
-  oceania: { color: 0x2dd4bf, position: [1.95, -1.25, -0.25] },
+  // Positions computed for 1.8-radius sphere: x=R·cos(lat)·cos(lng), y=R·sin(lat), z=R·cos(lat)·sin(lng)
+  northAmerica: { color: 0x38bdf8, lat: 40,  lng: -100 },
+  southAmerica: { color: 0x22c55e, lat: -15, lng: -60 },
+  europe:       { color: 0xf59e0b, lat: 50,  lng: 10 },
+  africa:       { color: 0xf43f5e, lat: 0,   lng: 25 },
+  asia:         { color: 0xa78bfa, lat: 35,  lng: 100 },
+  oceania:      { color: 0x2dd4bf, lat: -25, lng: 135 },
 };
+
+function latLngToVec3(lat, lng, radius = 1.88) {
+  const phi = (90 - lat) * (Math.PI / 180);  // polar angle from top
+  const theta = lng * (Math.PI / 180);
+  return [
+    radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta),
+  ];
+}
 
 const worldSceneState = {
   nodes: new Map(),
@@ -1394,29 +1746,43 @@ function buildWorldSceneLayers() {
   worldSceneState.macroGroup = new THREE.Group();
 
   Object.entries(worldAnchorConfig).forEach(([regionKey, anchor]) => {
+    const pos = latLngToVec3(anchor.lat, anchor.lng, 1.88);
     const regionMarker = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.19, 0),
+      new THREE.OctahedronGeometry(0.12, 0),
       new THREE.MeshStandardMaterial({
         color: anchor.color,
         emissive: anchor.color,
-        emissiveIntensity: 0.35,
+        emissiveIntensity: 0.5,
       })
     );
-    regionMarker.position.set(...anchor.position);
+    regionMarker.position.set(...pos);
     registerSelectable(regionMarker, `region:${regionKey}`, ['macro']);
     worldSceneState.macroGroup.add(regionMarker);
 
+    // Glowing ring around marker
+    const ringGeom = new THREE.TorusGeometry(0.16, 0.02, 8, 24);
+    const ring = new THREE.Mesh(ringGeom, new THREE.MeshBasicMaterial({ color: anchor.color, transparent: true, opacity: 0.6 }));
+    ring.position.set(...pos);
+    ring.lookAt(new THREE.Vector3(0, 0, 0));
+    worldSceneState.macroGroup.add(ring);
+
+    // Column rising from surface
+    const columnPos = latLngToVec3(anchor.lat, anchor.lng, 1.88);
+    const columnDir = new THREE.Vector3(...columnPos).normalize();
     const zoneColumn = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.05, 0.08, 0.38, 12),
+      new THREE.CylinderGeometry(0.03, 0.05, 0.25, 12),
       new THREE.MeshStandardMaterial({
         color: anchor.color,
         emissive: anchor.color,
-        emissiveIntensity: 0.12,
+        emissiveIntensity: 0.2,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.7,
       })
     );
-    zoneColumn.position.set(anchor.position[0], anchor.position[1] - 0.35, anchor.position[2]);
+    const colOuter = new THREE.Vector3(...columnPos).addScaledVector(columnDir, 0.15);
+    zoneColumn.position.copy(colOuter);
+    zoneColumn.lookAt(new THREE.Vector3(0, 0, 0));
+    zoneColumn.rotateX(Math.PI / 2);
     registerSelectable(zoneColumn, `zone:${regionKey}:core`, ['macro']);
     worldSceneState.macroGroup.add(zoneColumn);
 
@@ -1806,138 +2172,568 @@ function selectWorldNode(nodeId) {
   renderVertexEditor(nodeId);
 }
 
+// ── Procedural Earth texture generator ─────────────────────────
+function generateProceduralEarthTexture(size = 1024) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size * 2;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  // Ocean base — deep blue
+  const oceanGrad = ctx.createRadialGradient(size, size * 0.5, size * 0.1, size, size * 0.5, size * 1.3);
+  oceanGrad.addColorStop(0, '#1a3a5c');
+  oceanGrad.addColorStop(0.5, '#0d2847');
+  oceanGrad.addColorStop(1, '#061627');
+  ctx.fillStyle = oceanGrad;
+  ctx.fillRect(0, 0, size * 2, size);
+
+  // Simple noise-based landmasses
+  const imageData = ctx.getImageData(0, 0, size * 2, size);
+  const data = imageData.data;
+
+  // Pseudo-random landmass generator (deterministic-ish)
+  const hash = (x, y) => {
+    let h = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+    return h - Math.floor(h);
+  };
+
+  for (let py = 0; py < size; py++) {
+    for (let px = 0; px < size * 2; px++) {
+      const i = (py * size * 2 + px) * 4;
+      const nx = px / (size * 2);
+      const ny = py / size;
+      const lon = nx * Math.PI * 2;
+      const lat = ny * Math.PI;
+
+      // Simplified continent shapes
+      let land = 0;
+      // North America
+      land += Math.max(0, 1 - Math.hypot((nx - 0.22) * 4.5, (ny - 0.30) * 4.0)) * 0.8;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.18) * 3.8, (ny - 0.38) * 3.5)) * 0.5;
+      // South America
+      land += Math.max(0, 1 - Math.hypot((nx - 0.25) * 5.5, (ny - 0.65) * 4.5)) * 0.7;
+      // Europe
+      land += Math.max(0, 1 - Math.hypot((nx - 0.48) * 5.0, (ny - 0.28) * 3.5)) * 0.6;
+      // Africa
+      land += Math.max(0, 1 - Math.hypot((nx - 0.50) * 4.0, (ny - 0.58) * 3.0)) * 0.75;
+      // Asia
+      land += Math.max(0, 1 - Math.hypot((nx - 0.62) * 3.0, (ny - 0.35) * 2.8)) * 0.7;
+      land += Math.max(0, 1 - Math.hypot((nx - 0.70) * 4.5, (ny - 0.45) * 3.2)) * 0.5;
+      // Australia
+      land += Math.max(0, 1 - Math.hypot((nx - 0.78) * 8.0, (ny - 0.72) * 7.0)) * 0.65;
+      // Noise
+      land += (hash(px * 0.7, py * 0.7) - 0.5) * 0.25;
+
+      const isLand = land > 0.35;
+
+      if (isLand) {
+        const shade = 0.6 + land * 0.5 + hash(px, py) * 0.15;
+        // Green-brown land
+        const r = Math.floor(60 * shade);
+        const g = Math.floor(110 * shade);
+        const b = Math.floor(40 * shade);
+        data[i] = r;
+        data[i + 1] = g;
+        data[i + 2] = b;
+      } else {
+        // Already ocean blue from base fill
+        // Add subtle ocean variation
+        const variation = (hash(px * 0.5, py * 0.5) - 0.5) * 15;
+        data[i] = Math.max(0, data[i] + variation);
+        data[i + 1] = Math.max(0, data[i + 1] + variation);
+        data[i + 2] = Math.max(0, data[i + 2] + variation);
+      }
+    }
+  }
+
+  // Cloud wisps
+  ctx.putImageData(imageData, 0, 0);
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  for (let i = 0; i < 300; i++) {
+    const cx = Math.random() * size * 2;
+    const cy = Math.random() * size;
+    const r = Math.random() * 80 + 20;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, r, r * 0.3, Math.random() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  return new THREE.CanvasTexture(canvas);
+}
+
+// ── Modular View System ──────────────────────────────────────
+
+const viewRegistry = {
+  world: { label: '🌍 World', panel: 'view-world', active: true },
+  product: { label: '📦 Product', panel: 'view-product', active: false },
+  labour: { label: '👷 Labour', panel: 'view-labour', active: false },
+};
+
+let activeView = 'world';
+
+function switchView(viewId) {
+  if (activeView === viewId) return;
+  activeView = viewId;
+
+  // Update tabs
+  document.querySelectorAll('.view-tab[data-view]').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.view === viewId);
+  });
+
+  // Update panels
+  Object.values(viewRegistry).forEach(v => {
+    const panel = document.getElementById(v.panel);
+    if (panel) panel.hidden = true;
+  });
+  const activePanel = document.getElementById(viewRegistry[viewId]?.panel);
+  if (activePanel) activePanel.hidden = false;
+
+  // Populate view with data if needed
+  if (viewId === 'product') populateProductView();
+  if (viewId === 'labour') populateLabourView();
+
+  // Resize Earth renderer when switching back to World
+  if (viewId === 'world' && worldRenderer) {
+    window.dispatchEvent(new Event('resize'));
+  }
+}
+
+function populateProductView() {
+  const stats = document.getElementById('product-stats');
+  if (!stats || stats.hasChildNodes()) return;
+
+  // Try database first, fall back to hardcoded
+  WorldData.transform('shortfall').then(shortfalls => {
+    if (!shortfalls || !shortfalls.length) {
+      renderProductFallback(stats);
+      return;
+    }
+    // Filter to planet-level modern era
+    const worldData = shortfalls.filter(s => s.entity_id === 'planet:earth' && s.time_period === 'modern');
+    if (!worldData.length) { renderProductFallback(stats); return; }
+
+    stats.innerHTML = worldData.map(s => {
+      const supplyFmt = s.supply > 1e9 ? `${(s.supply/1e9).toFixed(1)}B` : s.supply > 1e6 ? `${(s.supply/1e6).toFixed(1)}M` : s.supply.toLocaleString();
+      const statusIcon = s.status === 'surplus' ? '✓' : '⚠';
+      return `<div class="view-stat"><strong>${supplyFmt}</strong><span>${statusIcon} ${s.resource} ${s.unit}</span></div>`;
+    }).join('');
+  }).catch(() => renderProductFallback(stats));
+}
+
+function renderProductFallback(stats) {
+  const resources = ['calories', 'water', 'housing', 'energy', 'medicine', 'materials'];
+  stats.innerHTML = resources.map(r => {
+    const supply = regionData.northAmerica?.stats?.[r] || '—';
+    return `<div class="view-stat"><strong>${supply}</strong><span>${r}</span></div>`;
+  }).join('');
+}
+
+function populateLabourView() {
+  const stats = document.getElementById('labour-stats');
+  if (!stats || stats.hasChildNodes()) return;
+
+  // Fetch industry×technique comparison from database
+  fetch('http://127.0.0.1:8001/api/labour-techniques')
+    .then(r => r.json())
+    .then(data => {
+      if (!data || !data.length) { renderLabourFallback(stats); return; }
+      renderLabourTechniqueTable(stats, data);
+    })
+    .catch(() => {
+      WorldData.transform('labor_required').then(laborData => {
+        if (!laborData || !laborData.length) { renderLabourFallback(stats); return; }
+        renderLabourBasic(stats, laborData);
+      }).catch(() => renderLabourFallback(stats));
+    });
+}
+
+function renderLabourTechniqueTable(stats, data) {
+  // Group by industry
+  const industries = [...new Set(data.map(d => d.industry))];
+  const techniques = [...new Set(data.map(d => d.technique))];
+
+  // Summary: best technique per industry
+  const summary = industries.map(ind => {
+    const rows = data.filter(d => d.industry === ind);
+    const manual = rows.find(r => r.technique_id === 'manual');
+    const best = rows.reduce((a, b) => (a.hours_per_unit < b.hours_per_unit) ? a : b);
+    const savings = manual ? ((1 - best.hours_per_unit / manual.hours_per_unit) * 100).toFixed(0) : 0;
+    return { industry: ind, best: best.technique, savings, manualHours: manual?.hours_per_unit, bestHours: best.hours_per_unit };
+  });
+
+  // Total world labor under each technique
+  const totalByTechnique = techniques.map(tech => {
+    const rows = data.filter(d => d.technique === tech);
+    const total = rows.reduce((s, r) => s + (r.world_labor_hours || 0), 0);
+    return { technique: tech, totalHours: total };
+  });
+
+  stats.innerHTML = `
+    <div style="width:100%;text-align:left;">
+      <h3 style="margin:0 0 0.75rem;font-size:0.9rem;letter-spacing:-0.02em;">Labour efficiency by technique</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.5rem;margin-bottom:1rem;">
+        ${totalByTechnique.map(t => {
+          const fmt = formatLabor(t.totalHours);
+          const pct = totalByTechnique[0]?.totalHours > 0
+            ? ((1 - t.totalHours / totalByTechnique[0].totalHours) * 100).toFixed(0)
+            : 0;
+          return `<div class="view-stat"><strong>${fmt}</strong><span>${t.technique}${pct > 0 ? ' · −'+pct+'%' : ''}</span></div>`;
+        }).join('')}
+      </div>
+      <h3 style="margin:0.75rem 0 0.5rem;font-size:0.9rem;letter-spacing:-0.02em;">Best technique per industry</h3>
+      <div style="display:grid;gap:0.35rem;">
+        ${summary.map(s => `
+          <div class="metric-row" style="justify-content:space-between;">
+            <span class="metric-label">${s.industry}</span>
+            <span style="font-size:0.8rem;color:var(--text-secondary);">${s.best}</span>
+            <span style="font-size:0.8rem;color:#4ade80;font-weight:600;">−${s.savings}% vs manual</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderLabourBasic(stats, laborData) {
+  const worldData = laborData.filter(l => l.entity_id === 'planet:earth' && l.time_period === 'modern');
+  if (!worldData.length) { renderLabourFallback(stats); return; }
+  const totalHuman = worldData.reduce((s, l) => s + (l.human_labor_hours || 0), 0);
+  const totalRobot = worldData.reduce((s, l) => s + (l.robot_labor_hours || 0), 0);
+  const totalLabor = totalHuman + totalRobot;
+  const robotRate = totalLabor > 0 ? (totalRobot / totalLabor * 100).toFixed(0) : 0;
+  stats.innerHTML = [
+    { label: 'Human labor', value: formatLabor(totalHuman) },
+    { label: 'Robot labor', value: formatLabor(totalRobot) },
+    { label: 'Automation rate', value: robotRate + '%' },
+    { label: 'Total labor', value: formatLabor(totalLabor) },
+    ...worldData.slice(0, 3).map(l => ({ label: l.resource, value: formatLabor(l.human_labor_hours + l.robot_labor_hours) })),
+  ].map(d => `<div class="view-stat"><strong>${d.value}</strong><span>${d.label}</span></div>`).join('');
+}
+
+function renderLabourFallback(stats) {
+  const labourData = [
+    { label: 'Human labor', value: '4.2B hrs/yr' },
+    { label: 'Robot labor', value: '6.8B hrs/yr' },
+    { label: 'Automation rate', value: '62%' },
+    { label: 'Workforce', value: '3.4B' },
+    { label: 'Productivity', value: '$18.4/hr' },
+  ];
+  stats.innerHTML = labourData.map(d =>
+    `<div class="view-stat"><strong>${d.value}</strong><span>${d.label}</span></div>`
+  ).join('');
+}
+
+function formatLabor(hours) {
+  if (hours > 1e12) return `${(hours/1e12).toFixed(1)}T hrs`;
+  if (hours > 1e9) return `${(hours/1e9).toFixed(1)}B hrs`;
+  if (hours > 1e6) return `${(hours/1e6).toFixed(1)}M hrs`;
+  return hours.toLocaleString() + ' hrs';
+}
+
+function addCustomView(viewId, label, icon = '📊') {
+  if (viewRegistry[viewId]) return;
+  viewRegistry[viewId] = { label: `${icon} ${label}`, panel: null, active: false, custom: true };
+
+  // Create tab button
+  const tabs = document.getElementById('view-tabs');
+  const addBtn = document.getElementById('add-view-tab');
+  const tab = document.createElement('button');
+  tab.type = 'button';
+  tab.className = 'view-tab';
+  tab.dataset.view = viewId;
+  tab.textContent = `${icon} ${label}`;
+  tab.addEventListener('click', () => switchView(viewId));
+  tabs.insertBefore(tab, addBtn);
+
+  // Create panel
+  const section = document.querySelector('.map-section');
+  const panel = document.createElement('div');
+  panel.className = 'view-panel';
+  panel.id = `view-${viewId}`;
+  panel.hidden = true;
+  panel.innerHTML = `<div class="view-placeholder"><h2>${label}</h2><p>Custom view — populate with data modules.</p></div>`;
+  section.appendChild(panel);
+
+  viewRegistry[viewId].panel = `view-${viewId}`;
+  switchView(viewId);
+}
+
+function initViewSystem() {
+  // View tab clicks
+  document.querySelectorAll('.view-tab[data-view]').forEach(tab => {
+    tab.addEventListener('click', () => switchView(tab.dataset.view));
+  });
+
+  // +Add tab
+  const addTab = document.getElementById('add-view-tab');
+  const addBar = document.getElementById('view-add-bar');
+  if (addTab && addBar) {
+    addTab.addEventListener('click', () => {
+      addBar.hidden = !addBar.hidden;
+    });
+  }
+
+  // Add view chips
+  document.querySelectorAll('[data-add-view]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const id = chip.dataset.addView;
+      const label = chip.textContent.trim();
+      addCustomView(id, label);
+      if (addBar) addBar.hidden = true;
+    });
+  });
+
+  // Show world by default
+  switchView('world');
+}
+
+// ── Full Earth preview scene ──────────────────────────────────
+
 function initWorldPreview() {
   if (!worldSceneContainer || typeof THREE === 'undefined') return;
 
   buildWorldHierarchy();
 
-  worldSceneContainer.style.minHeight = '420px';
-  const width = Math.max(worldSceneContainer.clientWidth || 420, 320);
-  const height = Math.max(worldSceneContainer.clientHeight || 420, 320);
+  const containerWidth = worldSceneContainer.clientWidth || window.innerWidth;
+  const containerHeight = Math.max(worldSceneContainer.clientHeight || 520, 420);
 
+  // ── Scene setup ──────────────────────────────────────────
   worldScene = new THREE.Scene();
-  worldScene.background = new THREE.Color(0x06111f);
 
-  worldCamera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-  worldCamera.position.set(0, 0, 7);
+  // Starfield background
+  const starsGeom = new THREE.BufferGeometry();
+  const starCount = 2000;
+  const starPositions = new Float32Array(starCount * 3);
+  for (let i = 0; i < starCount * 3; i += 3) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const r = 80 + Math.random() * 40;
+    starPositions[i] = r * Math.sin(phi) * Math.cos(theta);
+    starPositions[i + 1] = r * Math.sin(phi) * Math.sin(theta);
+    starPositions[i + 2] = r * Math.cos(phi);
+  }
+  starsGeom.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+  const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.08, transparent: true, opacity: 0.7 });
+  worldScene.add(new THREE.Points(starsGeom, starsMat));
 
+  // ── Camera ───────────────────────────────────────────────
+  worldCamera = new THREE.PerspectiveCamera(40, containerWidth / containerHeight, 0.1, 200);
+  worldCamera.position.set(0, 0.8, 5.5);
+  worldCamera.lookAt(0, 0, 0);
+
+  // ── Renderer ─────────────────────────────────────────────
   worldRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  worldRenderer.setSize(width, height);
+  worldRenderer.setSize(containerWidth, containerHeight);
   worldRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  worldRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+  worldRenderer.toneMappingExposure = 1.2;
   worldSceneContainer.innerHTML = '';
   worldSceneContainer.appendChild(worldRenderer.domElement);
 
-  const ambientLight = new THREE.AmbientLight(0x9bdcff, 1.3);
+  // ── Lighting ─────────────────────────────────────────────
+  const ambientLight = new THREE.AmbientLight(0x334466, 1.8);
   worldScene.add(ambientLight);
 
-  const pointLight = new THREE.PointLight(0xffffff, 2.5, 50);
-  pointLight.position.set(6, 4, 8);
-  worldScene.add(pointLight);
+  const sunLight = new THREE.DirectionalLight(0xffffff, 3.5);
+  sunLight.position.set(5, 3, 5);
+  worldScene.add(sunLight);
 
-  const geometry = new THREE.IcosahedronGeometry(2.2, 3);
-  const material = new THREE.MeshStandardMaterial({
-    color: 0x1d4ed8,
-    roughness: 0.8,
-    metalness: 0.1,
-    emissive: 0x071423,
-    emissiveIntensity: 0.6,
+  const fillLight = new THREE.DirectionalLight(0x4466aa, 0.8);
+  fillLight.position.set(-3, -1, -2);
+  worldScene.add(fillLight);
+
+  // ── Earth sphere ─────────────────────────────────────────
+  const earthGeom = new THREE.SphereGeometry(1.8, 96, 72);
+  const earthTex = generateProceduralEarthTexture(1024);
+  earthTex.colorSpace = THREE.SRGBColorSpace;
+  const earthMat = new THREE.MeshStandardMaterial({
+    map: earthTex,
+    roughness: 0.75,
+    metalness: 0.05,
   });
-  worldEarth = new THREE.Mesh(geometry, material);
+  worldEarth = new THREE.Mesh(earthGeom, earthMat);
   worldScene.add(worldEarth);
+  worldEarth.rotation.x = 0.2; // Slight tilt like real Earth
 
-  worldAtmosphere = new THREE.Mesh(
-    new THREE.SphereGeometry(2.32, 42, 42),
-    new THREE.ShaderMaterial({
-      transparent: true,
-      uniforms: { color: { value: new THREE.Color(0x67e8f9) } },
-      vertexShader: `varying vec3 vNormal; void main() { vNormal = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-      fragmentShader: `uniform vec3 color; varying vec3 vNormal; void main() { float intensity = pow(0.6 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.0); gl_FragColor = vec4(color, 0.2 * intensity); }`,
-    })
-  );
+  // ── Atmosphere glow ──────────────────────────────────────
+  const atmosGeom = new THREE.SphereGeometry(1.88, 64, 48);
+  const atmosMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms: {
+      uColor: { value: new THREE.Color(0x88ccff) },
+      uFalloff: { value: 3.5 },
+      uIntensity: { value: 0.45 },
+    },
+    vertexShader: /* glsl */ `
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+      varying vec3 vWorldPos;
+      void main() {
+        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+        vWorldPos = worldPos.xyz;
+        vNormal = normalize(mat3(modelMatrix) * normal);
+        vPosition = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uColor;
+      uniform float uFalloff;
+      uniform float uIntensity;
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+      varying vec3 vWorldPos;
+      void main() {
+        vec3 viewDir = normalize(cameraPosition - vWorldPos);
+        float rim = 1.0 - abs(dot(viewDir, vNormal));
+        float glow = pow(rim, uFalloff) * uIntensity;
+        gl_FragColor = vec4(uColor, glow);
+      }
+    `,
+  });
+  worldAtmosphere = new THREE.Mesh(atmosGeom, atmosMat);
   worldScene.add(worldAtmosphere);
 
+  // ── Build scene layers ───────────────────────────────────
   buildWorldSceneLayers();
 
+  // ── Orbit state ──────────────────────────────────────────
+  const orbitState = {
+    theta: 0.4,        // azimuthal angle
+    phi: Math.PI * 0.42, // polar angle (from top)
+    radius: 5.5,
+    targetTheta: 0.4,
+    targetPhi: Math.PI * 0.42,
+    targetRadius: 5.5,
+    autoRotate: true,
+    damping: 0.08,
+    minRadius: 2.8,
+    maxRadius: 10,
+  };
+
+  // ── Raycaster ────────────────────────────────────────────
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
+  let pointerDownPos = { x: 0, y: 0 };
+  let dragStartTheta = 0;
+  let dragStartPhi = 0;
+  let isDragging = false;
 
-  const getIntersectedWorldNodeId = (event) => {
+  const getIntersectedNodeId = (event) => {
     const rect = worldRenderer.domElement.getBoundingClientRect();
     pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, worldCamera);
-
     const intersects = raycaster.intersectObjects(getActiveSelectableObjects(), false);
     return intersects[0]?.object?.userData?.nodeId || null;
   };
 
-  const onPointerUp = () => {
-    const didClick = worldSceneState.pointerTravel < 6;
-    worldSceneState.pointerDown = false;
+  // ── Pointer events ───────────────────────────────────────
+  worldRenderer.domElement.style.cursor = 'grab';
 
-    if (didClick) {
-      const nodeId = worldSceneState.hoveredNodeId;
-      if (nodeId) {
-        selectWorldNode(nodeId);
-      }
+  worldRenderer.domElement.addEventListener('pointerdown', (event) => {
+    isDragging = true;
+    pointerDownPos = { x: event.clientX, y: event.clientY };
+    dragStartTheta = orbitState.targetTheta;
+    dragStartPhi = orbitState.targetPhi;
+    orbitState.autoRotate = false;
+    worldRenderer.domElement.style.cursor = 'grabbing';
+  });
+
+  worldRenderer.domElement.addEventListener('pointermove', (event) => {
+    if (isDragging) {
+      const dx = event.clientX - pointerDownPos.x;
+      const dy = event.clientY - pointerDownPos.y;
+      orbitState.targetTheta = dragStartTheta - dx * 0.005;
+      orbitState.targetPhi = Math.max(0.15, Math.min(Math.PI - 0.15, dragStartPhi + dy * 0.005));
     }
-  };
-
-  const onPointerLeave = () => {
-    worldSceneState.pointerDown = false;
-    worldSceneState.hoveredNodeId = null;
-    updateWorldStatus();
-  };
-
-  const onPointerMove = (event) => {
-    if (worldSceneState.pointerDown) {
-      const deltaX = event.clientX - worldSceneState.lastPointerX;
-      const deltaY = event.clientY - worldSceneState.lastPointerY;
-      worldSceneState.pointerTravel += Math.abs(deltaX) + Math.abs(deltaY);
-
-      if (activeDetailMode === 'macro') {
-        worldEarth.rotation.y += deltaX * 0.008;
-        worldEarth.rotation.x = Math.max(-0.45, Math.min(0.45, worldEarth.rotation.x + deltaY * 0.006));
-      }
-    }
-
-    worldSceneState.lastPointerX = event.clientX;
-    worldSceneState.lastPointerY = event.clientY;
-
-    worldSceneState.hoveredNodeId = getIntersectedWorldNodeId(event);
-    worldRenderer.domElement.style.cursor = worldSceneState.hoveredNodeId
-      ? 'pointer'
-      : worldSceneState.pointerDown
-        ? 'grabbing'
-        : 'grab';
-
+    worldSceneState.hoveredNodeId = getIntersectedNodeId(event);
+    worldRenderer.domElement.style.cursor = isDragging ? 'grabbing' : worldSceneState.hoveredNodeId ? 'pointer' : 'grab';
     updateWorldStatus(worldSceneState.hoveredNodeId);
-  };
+  });
 
-  const onPointerDown = (event) => {
-    worldSceneState.pointerDown = true;
-    worldSceneState.pointerTravel = 0;
-    worldSceneState.lastPointerX = event.clientX;
-    worldSceneState.lastPointerY = event.clientY;
-    worldSceneState.hoveredNodeId = getIntersectedWorldNodeId(event);
-  };
+  worldRenderer.domElement.addEventListener('pointerup', (event) => {
+    const traveled = Math.hypot(event.clientX - pointerDownPos.x, event.clientY - pointerDownPos.y);
+    isDragging = false;
+    worldRenderer.domElement.style.cursor = worldSceneState.hoveredNodeId ? 'pointer' : 'grab';
 
-  worldRenderer.domElement.addEventListener('pointermove', onPointerMove);
-  worldRenderer.domElement.addEventListener('pointerdown', onPointerDown);
-  worldRenderer.domElement.addEventListener('pointerup', onPointerUp);
-  worldRenderer.domElement.addEventListener('pointerleave', onPointerLeave);
+    if (traveled < 4 && worldSceneState.hoveredNodeId) {
+      selectWorldNode(worldSceneState.hoveredNodeId);
+    }
+    // Resume auto-rotate after 3s of no interaction
+    clearTimeout(orbitState._resumeTimer);
+    orbitState._resumeTimer = setTimeout(() => { orbitState.autoRotate = true; }, 3000);
+  });
 
+  worldRenderer.domElement.addEventListener('pointerleave', () => {
+    isDragging = false;
+    worldRenderer.domElement.style.cursor = 'grab';
+  });
+
+  worldRenderer.domElement.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    orbitState.targetRadius = Math.max(orbitState.minRadius, Math.min(orbitState.maxRadius,
+      orbitState.targetRadius + event.deltaY * 0.005));
+  }, { passive: false });
+
+  // Touch pinch zoom
+  let lastPinchDist = 0;
+  worldRenderer.domElement.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      lastPinchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  }, { passive: true });
+  worldRenderer.domElement.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      orbitState.targetRadius = Math.max(orbitState.minRadius, Math.min(orbitState.maxRadius,
+        orbitState.targetRadius - (dist - lastPinchDist) * 0.01));
+      lastPinchDist = dist;
+    }
+  }, { passive: true });
+
+  // ── Animate loop ─────────────────────────────────────────
   const animate = () => {
     requestAnimationFrame(animate);
-    if (!worldSceneState.pointerDown && activeDetailMode === 'macro') {
-      worldEarth.rotation.y += 0.002;
+
+    // Auto-rotate
+    if (orbitState.autoRotate) {
+      orbitState.targetTheta += 0.0015;
     }
-    if (worldSceneState.cameraTarget) {
-      worldCamera.position.lerp(worldSceneState.cameraTarget, 0.1);
+
+    // Smooth damping
+    orbitState.theta += (orbitState.targetTheta - orbitState.theta) * orbitState.damping;
+    orbitState.phi += (orbitState.targetPhi - orbitState.phi) * orbitState.damping;
+    orbitState.radius += (orbitState.targetRadius - orbitState.radius) * orbitState.damping;
+
+    // Spherical → Cartesian
+    const sp = Math.sin(orbitState.phi);
+    const cp = Math.cos(orbitState.phi);
+    const st = Math.sin(orbitState.theta);
+    const ct = Math.cos(orbitState.theta);
+    const x = orbitState.radius * sp * ct;
+    const y = orbitState.radius * cp;
+    const z = orbitState.radius * sp * st;
+
+    worldCamera.position.lerp(new THREE.Vector3(x, y, z), 0.15);
+    worldCamera.lookAt(0, 0, 0);
+
+    // Atmosphere follows camera subtly
+    if (worldAtmosphere) {
+      worldAtmosphere.material.uniforms.uIntensity.value = 0.35 + (orbitState.radius - orbitState.minRadius) / (orbitState.maxRadius - orbitState.minRadius) * 0.15;
     }
+
     worldRenderer.render(worldScene, worldCamera);
   };
 
+  // ── Initialize ───────────────────────────────────────────
   setActiveDetailMode('macro');
   selectWorldNode('region:northAmerica');
   animate();
@@ -2305,9 +3101,24 @@ function loadLatestScenario() {
 function updateMemberToolsVisibility() {
   const profile = getStoredProfile();
   const hasAccess = Boolean(profile?.name || profile?.email || profile?.type);
-  memberToolsGate.classList.toggle('is-hidden', hasAccess);
-  memberToolsBody.hidden = !hasAccess;
-  if (hasAccess) renderAssetRewards();
+  const workspace = document.getElementById('member-workspace');
+  const target = document.getElementById('member-tools-target');
+  const source = document.getElementById('member-tools-body');
+
+  if (hasAccess && workspace && target && source) {
+    // Move calculator + results into the login section
+    if (!target.hasChildNodes()) {
+      while (source.firstChild) {
+        target.appendChild(source.firstChild);
+      }
+    }
+    workspace.hidden = false;
+    memberToolsGate.classList.add('is-hidden');
+    renderAssetRewards();
+  } else {
+    if (workspace) workspace.hidden = true;
+    if (memberToolsGate) memberToolsGate.classList.remove('is-hidden');
+  }
 }
 
 function updateProfileSummary() {
@@ -2392,5 +3203,6 @@ updateMemberToolsVisibility();
 renderScenarios();
 renderCostEstimate();
 renderCountryMonitor();
+initViewSystem();
 initWorldPreview();
 document.getElementById('calculate-button').click();

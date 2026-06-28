@@ -12,3 +12,8 @@ npm-debug.log*
 
 # editor
 .vscode/settings.json
+
+# database
+db/world_scheduler.db
+db/world_scheduler.db-wal
+db/world_scheduler.db-shm

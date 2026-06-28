@@ -7,6 +7,13 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <nav class="top-nav">
+      <span class="top-nav-brand">World Scheduler</span>
+      <span class="top-nav-links">
+        <a class="top-nav-login" href="learn.html">Learn</a>
+        <a class="top-nav-login" href="#" id="top-login-button" style="margin-left:0.4rem;cursor:pointer;">Login</a>
+      </span>
+    </nav>
     <header class="hero">
       <div class="hero-content hero-grid">
         <div class="hero-copy-col">
@@ -17,7 +24,7 @@
           </p>
           <div class="hero-actions">
             <a class="button" href="#data-view">Explore the data</a>
-            <a class="button secondary" href="#member-tools">Member workspace</a>
+            <a class="button secondary" href="#login-section">Member workspace</a>
           </div>
           <div class="hero-stats">
             <div class="hero-stat">
@@ -34,7 +41,13 @@
             </div>
           </div>
         </div>
-        <aside class="profile-panel">
+      </div>
+    </header>
+
+    <!-- Login / Profile section — revealed when Login is clicked -->
+    <section class="section login-section" id="login-section" hidden>
+      <div class="content" style="max-width:560px;">
+        <div class="profile-panel" style="border:1px solid var(--border-strong);">
           <div class="profile-head">
             <div>
               <p class="eyebrow">Profile</p>
@@ -44,7 +57,7 @@
           <div class="profile-card">
             <div class="field-row">
               <label for="profile-name">Name</label>
-              <input type="text" id="profile-name" placeholder="First & last" />
+              <input type="text" id="profile-name" placeholder="First &amp; last" />
             </div>
             <div class="field-row">
               <label for="profile-email">Email</label>
@@ -82,11 +95,23 @@
               <p>No profile created yet.</p>
             </div>
           </div>
-        </aside>
+        </div>
+
+        <!-- Unlocks after profile creation — calculator + results moved here by JS -->
+        <div id="member-workspace" hidden>
+          <p class="muted-text" style="margin-bottom:1rem;">Your workspace is ready. Use the calculator and saved scenarios to build and revisit planning models.</p>
+          <div id="member-tools-target"></div>
+        </div>
       </div>
-    </header>
+    </section>
 
     <main>
+      <!--
+      ═══════════════════════════════════════════════════════════
+      INTERNAL: Journey map — developer reference for UI flow.
+      Hidden from public view. Users interact with the actual
+      buttons and controls, not this explanation.
+      ═══════════════════════════════════════════════════════════
       <section class="section journey-map">
         <div class="content">
           <h2>Journey map</h2>
@@ -100,73 +125,26 @@
           </div>
         </div>
       </section>
-
-      <section class="section intro" id="data-view">
-        <div class="content">
-          <h2>What the World Scheduler does</h2>
-          <p>
-            The World Scheduler is a system for measuring civilization using physical numbers:
-            calories, water, energy, housing, medicine, materials, labor hours, and transport.
-            It uses safety margins and production data to find real shortages and set real priorities.
-          </p>
-        </div>
-      </section>
-
-      <section class="section cards">
-        <article class="card">
-          <h3>Needs → Supply → Shortage</h3>
-          <p>
-            Calculate what people actually need, then compare that need to what is available.
-            When supply is lower than the safety-target, the system finds the shortage in exact numbers.
-          </p>
-        </article>
-        <article class="card">
-          <h3>Tax direction becomes action</h3>
-          <p>
-            When a resource is short, direction is clear: build farms, water systems, greenhouses, factories, transport, or automation.
-          </p>
-        </article>
-        <article class="card">
-          <h3>Labor hours reveal true cost</h3>
-          <p>
-            Goods require production. Production requires labor. Robots lower human labor and free people for higher quality of life.
-          </p>
-        </article>
-      </section>
-
-      <section class="section explanation">
-        <div class="content">
-          <h2>The philosophy behind the scheduler</h2>
-          <p>
-            This is not redistribution based on politics. It is engineering civilization as a system.
-            You calculate need, add a safety margin, measure supply, find the gap, direct resources, and repeat.
-          </p>
-          <ul>
-            <li>Do we have enough calories?</li>
-            <li>Do we have enough water?</li>
-            <li>Do we have enough housing?</li>
-            <li>Do we have enough energy?</li>
-            <li>Do we have enough medicine?</li>
-            <li>Do we have enough materials?</li>
-            <li>Do we have enough production capacity?</li>
-            <li>Do we have enough transportation?</li>
-          </ul>
-        </div>
-      </section>
+      -->
 
       <section class="section map-section">
-        <div class="content map-grid">
-          <div class="map-view">
-            <h2>Zoom in on Earth</h2>
-            <p>Choose a region, then zoom to individual homes to inspect consumption and usage.</p>
-            <div class="world-toolbar">
-              <div class="detail-mode-buttons">
-                <button type="button" class="detail-mode active" data-mode="macro">Macro</button>
-                <button type="button" class="detail-mode" data-mode="micro">Micro</button>
-                <button type="button" class="detail-mode" data-mode="nano">Nano</button>
-              </div>
-              <div id="world-status" class="world-status">Select a region to inspect the world layer.</div>
+        <!-- View tabs -->
+        <div class="view-tabs" id="view-tabs">
+          <button type="button" class="view-tab active" data-view="world">🌍 World</button>
+          <button type="button" class="view-tab" data-view="product">📦 Product</button>
+          <button type="button" class="view-tab" data-view="labour">👷 Labour</button>
+          <button type="button" class="view-tab view-tab-add" id="add-view-tab" title="Add view">+</button>
+        </div>
+
+        <!-- World View -->
+        <div class="view-panel" id="view-world">
+          <div class="map-toolbar">
+            <div class="detail-mode-buttons">
+              <button type="button" class="detail-mode active" data-mode="macro">Macro</button>
+              <button type="button" class="detail-mode" data-mode="micro">Micro</button>
+              <button type="button" class="detail-mode" data-mode="nano">Nano</button>
             </div>
+            <div id="world-status" class="world-status">Select a region to inspect the world layer.</div>
             <div id="nano-toolbar" class="nano-toolbar" hidden>
               <div class="prim-mode-buttons">
                 <button type="button" class="prim-mode active" data-prim="all">All</button>
@@ -181,35 +159,104 @@
                 <button type="button" id="world-isolate-exit" class="button ghost" hidden>Exit isolate</button>
               </div>
             </div>
-            <div class="globe" id="world-scene"></div>
-            <div class="map-legend">
-              <p>Tap a region, then switch between macro, micro, and nano detail to inspect the world layer.</p>
-              <p class="muted-text">This is a working 3D preview of the World Scheduler's spatial planning model.</p>
-            </div>
-            <div class="world-callout">
-              <h3>Current 3D build status</h3>
-              <p>The live preview already supports hierarchy-aware macro, micro, and nano navigation. The next technical step is direct face, edge, and vertex picking on the active nano surface.</p>
-            </div>
           </div>
-
-          <div class="map-details">
-            <h2>Region & home details</h2>
-            <div id="selected-region" class="detail-box">
-              <p>Select a region on the globe to begin.</p>
-            </div>
-            <div class="detail-controls">
-              <button id="zoom-home-button" disabled>Zoom into homes</button>
-            </div>
-            <div id="home-list" class="home-list"></div>
-            <div id="home-details" class="home-details"></div>
+          <div class="earth-stage" id="world-scene"></div>
+          <div class="earth-details-bar">
+            <div id="selected-region" class="detail-chip">Select a region on the globe</div>
+            <button id="zoom-home-button" class="button ghost" disabled>Inspect homes →</button>
+            <div id="home-list" class="home-list" hidden></div>
+            <div id="home-details" class="home-details" hidden></div>
             <div id="vertex-editor" class="vertex-editor" hidden>
               <h3>Vertex editor</h3>
               <div id="vertex-editor-content"></div>
             </div>
           </div>
         </div>
+
+        <!-- Product View -->
+        <div class="view-panel" id="view-product" hidden>
+          <div class="view-placeholder">
+            <h2>Product View</h2>
+            <p>Resource production tracking, supply chains, manufacturing output, and infrastructure metrics.</p>
+            <div class="view-quick-stats" id="product-stats"></div>
+          </div>
+        </div>
+
+        <!-- Labour View -->
+        <div class="view-panel" id="view-labour" hidden>
+          <div class="view-placeholder">
+            <h2>Labour View</h2>
+            <p>Human labor hours, robot automation rates, workforce distribution, and productivity metrics.</p>
+            <div class="view-quick-stats" id="labour-stats"></div>
+          </div>
+        </div>
+
+        <!-- Add view modal trigger area -->
+        <div class="view-add-bar" id="view-add-bar" hidden>
+          <span class="chips-label">Available views:</span>
+          <button class="chip" data-add-view="trade">Trade</button>
+          <button class="chip" data-add-view="energy">Energy</button>
+          <button class="chip" data-add-view="health">Health</button>
+          <button class="chip" data-add-view="transport">Transport</button>
+          <button class="chip" data-add-view="housing">Housing</button>
+        </div>
       </section>
 
+      <!-- Data Explorer — Google Trends-style search-driven data exploration -->
+      <section class="section data-explorer">
+        <div class="content">
+          <h2>Explore world data</h2>
+
+          <!-- Search -->
+          <div class="explorer-search-bar">
+            <input type="text" id="data-search" class="explorer-search-input" placeholder="Search countries, metrics, or resources…" autocomplete="off" />
+            <div id="data-search-suggestions" class="explorer-suggestions" hidden></div>
+          </div>
+
+          <!-- Quick chips -->
+          <div class="explorer-chips" id="explorer-chips">
+            <span class="chips-label">Trending:</span>
+            <button class="chip" data-chip="country:EE">🇪🇪 Estonia</button>
+            <button class="chip" data-chip="metric:civilization_efficiency_index">Civilization efficiency</button>
+            <button class="chip" data-chip="metric:overall_resource_security">Resource security</button>
+            <button class="chip" data-chip="metric:human_development_proxy">Human development</button>
+            <button class="chip" data-chip="metric:sustainability_proxy">Sustainability</button>
+            <button class="chip" data-chip="metric:world_stewardship_score">Stewardship</button>
+          </div>
+
+          <!-- Compare bar -->
+          <div class="explorer-compare-bar" id="explorer-compare-bar">
+            <span class="compare-label">Compare</span>
+            <div class="compare-slots" id="compare-slots">
+              <div class="compare-slot empty" data-slot="0">+ Add</div>
+              <div class="compare-slot empty" data-slot="1">+ Add</div>
+              <div class="compare-slot empty" data-slot="2">+ Add</div>
+            </div>
+            <button class="button ghost" id="compare-clear" hidden>Clear all</button>
+          </div>
+
+          <!-- Results area -->
+          <div id="explorer-results" class="explorer-results">
+            <!-- Leaderboard shown when nothing searched -->
+            <div id="explorer-leaderboard">
+              <div class="country-monitor-head">
+                <div>
+                  <p class="eyebrow">International monitoring</p>
+                  <h3>Public data accuracy leaderboard</h3>
+                </div>
+                <div id="country-monitor-note" class="monitor-note"></div>
+              </div>
+              <div id="country-monitor-list" class="country-monitor-list"></div>
+            </div>
+            <!-- Data cards shown when items selected -->
+            <div id="explorer-cards" class="explorer-cards" hidden></div>
+            <!-- Comparison view -->
+            <div id="explorer-compare-view" class="explorer-compare-view" hidden></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- INTERNAL: Data integration blueprint — architecture planning, not user-facing UI
       <section class="section data-integration-section">
         <div class="content">
           <h2>Data integration blueprint</h2>
@@ -260,30 +307,11 @@
               </ul>
             </article>
           </div>
-          <div class="country-monitor-panel">
-            <div class="country-monitor-copy">
-              <h3>Country of Earth baseline</h3>
-              <p>Only public data is allowed into this ranking. Each country is scored on how completely, consistently, and transparently it publishes the evidence required to model its own reality.</p>
-              <ul>
-                <li>Legal baseline: public sources only</li>
-                <li>Accuracy baseline: publication coverage, recency, conflict rate, and source diversity</li>
-                <li>Incentive baseline: the closer a country gets to 100% trusted self-description, the closer it gets to being crowned Country of Earth</li>
-              </ul>
-            </div>
-            <div class="country-monitor-card">
-              <div class="country-monitor-head">
-                <div>
-                  <p class="eyebrow">International monitoring</p>
-                  <h3>Public data accuracy leaderboard</h3>
-                </div>
-                <div id="country-monitor-note" class="monitor-note"></div>
-              </div>
-              <div id="country-monitor-list" class="country-monitor-list"></div>
-            </div>
-          </div>
         </div>
       </section>
+      -->
 
+      <!-- INTERNAL: LLM integration — placeholder, not functional yet
       <section class="section llm-integration">
         <div class="content">
           <h2>LLM integration layer</h2>
@@ -322,7 +350,6 @@
                 <button type="button" id="send-llm" class="button">Send to LLM</button>
               </div>
             </div>
-
             <div class="llm-output">
               <h3>LLM output</h3>
               <div id="llm-response" class="llm-response">
@@ -332,10 +359,11 @@
           </div>
         </div>
       </section>
+      -->
 
-      <section class="section member-tools" id="member-tools">
+      <section class="section member-tools" id="member-tools" hidden>
         <div class="content">
-          <div id="member-tools-gate" class="member-gate">
+          <div id="member-tools-gate" class="member-gate" hidden>
             <div class="member-gate-head">
               <div>
                 <p class="eyebrow">Private planning</p>
@@ -347,7 +375,7 @@
             <p class="muted-text">The public experience remains a data-first view of the world’s systems, with the calculator reserved for signed-in users.</p>
           </div>
 
-          <div id="member-tools-body" hidden>
+          <div id="member-tools-body">
             <div class="member-dashboard">
               <div class="member-dashboard-head">
                 <div>
@@ -549,22 +577,10 @@
                 <div id="scenario-compare-panel" class="result-block" hidden></div>
                 <div id="results-table" class="result-block"></div>
                 <div id="results-action" class="result-block"></div>
+                <div id="results-db-crosscheck" class="result-block"></div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section class="section explanation">
-        <div class="content">
-          <h2>How family quota works</h2>
-          <p>
-            The scheduler uses family size, regional needs, health, and activity to build a life plan.
-            Premium quota is possible, but the system flags anything above a normal allowance so the extra is clearly visible.
-          </p>
-          <p>
-            This is where the world scheduler turns raw numbers into a simple life plan: food, housing, energy, medicine, transport, and luxury.
-          </p>
         </div>
       </section>
     </main>
