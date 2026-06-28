@@ -796,11 +796,32 @@ function renderExplorerView() {
 
 function renderExplorerCard(item) {
   const entries = Object.entries(item.metrics || {});
-  const rows = entries.length ? entries.map(([k, v]) => {
+  const hasMetrics = entries.length > 0;
+  const rows = hasMetrics ? entries.map(([k, v]) => {
     const val = typeof v === 'number' ? (v < 1 ? (v*100).toFixed(0)+'%' : v.toLocaleString()) : v;
     return `<div class="metric-row"><span class="metric-label">${k.replace(/_/g,' ')}</span><span class="metric-value">${val}</span></div>`;
-  }).join('') : '<p class="metric-label">No metrics available.</p>';
-  return `<div class="explorer-card"><h3>${item.label}</h3><p class="card-type">${item.type}</p>${rows}</div>`;
+  }).join('') : '<p class="metric-label">Loading from database…</p>';
+
+  // For metric-type items without hardcoded metrics, fetch from API
+  if (item.type === 'metric' && !hasMetrics) {
+    const metricId = item.id.replace('metric:', '');
+    fetch(`http://127.0.0.1:8001/api/measurements?metric=${encodeURIComponent(metricId)}&entity_id=planet:earth`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data?.length) return;
+        const m = data[0];
+        const card = document.querySelector(`.explorer-card[data-id="${item.id}"]`);
+        if (card) {
+          card.innerHTML = `<h3>${item.label}</h3><p class="card-type">${item.type}</p>
+            <div class="metric-row"><span class="metric-label">Value</span><span class="metric-value">${typeof m.value==='number'?m.value.toLocaleString():m.value}</span></div>
+            <div class="metric-row"><span class="metric-label">Unit</span><span class="metric-value">${m.unit}</span></div>
+            <div class="metric-row"><span class="metric-label">Confidence</span><span class="metric-value">${(m.confidence*100).toFixed(0)}%</span></div>
+            <div class="metric-row"><span class="metric-label">Source</span><span class="metric-value">${m.source||'unknown'}</span></div>`;
+        }
+      }).catch(() => {});
+  }
+
+  return `<div class="explorer-card" data-id="${item.id}"><h3>${item.label}</h3><p class="card-type">${item.type}</p>${rows}</div>`;
 }
 
 function renderExplorerCompareTable() {
@@ -2183,16 +2204,15 @@ function selectWorldNode(nodeId) {
 
 function loadEarthTexture() {
   return new Promise((resolve) => {
-    // Try NASA Blue Marble from CDN (8K next-gen, ~2MB)
+    // Try local Blue Marble first, then CDN, then procedural
     const urls = [
+      'assets/textures/earth_color.jpg',
       'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
-      'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg',
     ];
     
     let tried = 0;
     function tryNext() {
       if (tried >= urls.length) {
-        // All failed, use procedural
         resolve(generateProceduralEarthTexture(2048));
         return;
       }
@@ -2208,24 +2228,11 @@ function loadEarthTexture() {
       img.src = url;
     }
     
-    // Start with procedural immediately, upgrade if real texture loads
     const procedural = generateProceduralEarthTexture(2048);
+    tryNext();
     
-    // Try real textures in background
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const realTex = new THREE.CanvasTexture(img);
-      realTex.colorSpace = THREE.SRGBColorSpace;
-      if (worldEarth?.material) {
-        worldEarth.material.map = realTex;
-        worldEarth.material.needsUpdate = true;
-      }
-    };
-    img.onerror = () => {}; // keep procedural
-    img.src = urls[0];
-    
-    resolve(procedural);
+    // Timeout: if no texture loads in 5s, use procedural
+    setTimeout(() => resolve(procedural), 5000);
   });
 }
 
@@ -3292,6 +3299,119 @@ Prompt: ${prompt}`;
 }
 
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// Status bar, charts, interactive countries, For You
+// ═══════════════════════════════════════════════════════════════
+
+function initStatusBar() {
+  const dot = document.getElementById('status-api-dot');
+  const text = document.getElementById('status-api-text');
+  if (!dot || !text) return;
+  fetch('http://127.0.0.1:8001/api/metrics')
+    .then(r => r.json())
+    .then(data => {
+      dot.className = 'status-dot online';
+      text.textContent = 'API: connected';
+      const mEl = document.getElementById('status-metrics-text');
+      if (mEl) mEl.textContent = `${data.length} metrics`;
+    })
+    .catch(() => {
+      dot.className = 'status-dot offline';
+      text.textContent = 'API: offline';
+    });
+}
+
+function makeLeaderboardInteractive() {
+  document.querySelectorAll('.country-monitor-row').forEach(row => {
+    if (row.dataset.interactive) return;
+    row.dataset.interactive = '1';
+    row.addEventListener('click', function() {
+      const wasExpanded = this.classList.contains('expanded');
+      document.querySelectorAll('.country-monitor-row').forEach(r => r.classList.remove('expanded'));
+      if (!wasExpanded) {
+        this.classList.add('expanded');
+        if (!this.querySelector('.country-detail')) {
+          const detail = document.createElement('div');
+          detail.className = 'country-detail';
+          const name = this.querySelector('strong')?.textContent;
+          const country = publicCountryBaseline.find(c => c.country === name);
+          if (country) {
+            detail.innerHTML = `Coverage: ${(country.coverage*100).toFixed(0)}% · Recency: ${(country.recency*100).toFixed(0)}% · Source diversity: ${(country.sourceDiversity*100).toFixed(0)}% · Consistency: ${(country.consistency*100).toFixed(0)}% · Machine readability: ${(country.machineReadability*100).toFixed(0)}%`;
+          }
+          this.appendChild(detail);
+        }
+      }
+    });
+  });
+}
+
+function drawBarChart(canvasId, data, options = {}) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = canvas.offsetWidth * 2;
+  const H = canvas.height = canvas.offsetHeight * 2;
+  const entries = Object.entries(data);
+  if (!entries.length) return;
+  const max = Math.max(...entries.map(([,v]) => v), 1);
+  const barW = (W - 60) / entries.length - 8;
+
+  ctx.clearRect(0, 0, W, H);
+  entries.forEach(([label, value], i) => {
+    const x = 40 + i * (barW + 8);
+    const h = (value / max) * (H - 50);
+    const y = H - 30 - h;
+    ctx.fillStyle = '#7c3aed';
+    ctx.beginPath(); ctx.roundRect(x, y, barW, h, [4,4,0,0]); ctx.fill();
+    ctx.fillStyle = '#9898a0';
+    ctx.font = `${Math.max(9,barW*0.22)}px Inter, system-ui`;
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x + barW/2, H - 8);
+    ctx.fillStyle = '#ededed';
+    ctx.font = `bold ${Math.max(9,barW*0.2)}px Inter, system-ui`;
+    ctx.fillText(options.format ? options.format(value) : value.toLocaleString(), x + barW/2, y - 6);
+  });
+}
+
+function addChartsToViews() {
+  const obs = new MutationObserver(() => {
+    const stats = document.getElementById('product-stats');
+    if (!stats || stats.querySelector('.view-chart') || !stats.children.length || stats.querySelector('.loading')) return;
+    const c = document.createElement('canvas');
+    c.className = 'view-chart'; c.id = 'product-chart'; c.style.height = '160px';
+    stats.appendChild(c);
+    setTimeout(() => {
+      const data = {};
+      stats.querySelectorAll('.view-stat').forEach(s => {
+        const parts = s.textContent.trim().split(/\s+/);
+        if (parts.length >= 2) data[parts.slice(1).join(' ')] = parseFloat(parts[0]) || 0;
+      });
+      drawBarChart('product-chart', data);
+    }, 100);
+  });
+  const target = document.getElementById('product-stats');
+  if (target) obs.observe(target, { childList: true, subtree: true });
+}
+
+function initForYouDashboard() {
+  const profile = getStoredProfile();
+  if (!profile?.name) return;
+  const target = document.getElementById('member-workspace');
+  if (!target || target.querySelector('.for-you')) return;
+  const section = document.createElement('div');
+  section.className = 'for-you';
+  section.style.cssText = 'margin-bottom:1.5rem;padding:1rem;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--border);';
+  section.innerHTML = `<h3 style=\"margin:0 0 0.5rem;font-size:0.9rem;\">For You, ${profile.name}</h3><p class=\"muted-text\" style=\"font-size:0.8rem;\">Based on your impact level (${profile.marginImpact||'moderate'}), here are the metrics that affect you most:</p><div class=\"view-quick-stats\" style=\"justify-content:flex-start;margin-top:0.5rem;\"><div class=\"view-stat\"><strong>${profile.marginImpact==='high'?'Critical':profile.marginImpact==='moderate'?'Moderate':'Low'}</strong><span>Impact level</span></div><div class=\"view-stat\"><strong>${profile.numbers?.calories||'75,000'}</strong><span>Calories baseline</span></div><div class=\"view-stat\"><strong>${profile.numbers?.energy||'300'}</strong><span>Energy kWh</span></div></div>`;
+  target.insertBefore(section, target.firstChild);
+}
+
+setTimeout(() => {
+  initStatusBar();
+  makeLeaderboardInteractive();
+  addChartsToViews();
+  initForYouDashboard();
+}, 1500);
+
 // Offline Derivation + Verification
 // ═══════════════════════════════════════════════════════════════
 

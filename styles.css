@@ -1669,8 +1669,28 @@ button.btn-comparing {
 .compare-view-row .metric-cell.worse { color: #f43f5e; }
 
 /* ═══════════════════════════════════════════════════════════════
+   Status bar & interactivity
+   ═══════════════════════════════════════════════════════════════ */
+
+.status-bar { display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.45rem 1.5rem; background: var(--surface); border-top: 1px solid var(--border); font-size: 0.72rem; color: var(--muted); letter-spacing: -0.01em; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: #6b6b76; flex-shrink: 0; }
+.status-dot.online { background: #4ade80; }
+.status-dot.offline { background: #f43f5e; }
+.status-sep { color: var(--border-strong); }
+
+.country-monitor-row { cursor: pointer; transition: background 0.15s; }
+.country-monitor-row:hover { background: var(--surface-3); }
+.country-monitor-row.expanded { border-color: rgba(124,58,237,0.25); background: rgba(124,58,237,0.04); }
+.country-detail { display: none; padding: 0.5rem 0 0; font-size: 0.78rem; color: var(--text-secondary); }
+.country-monitor-row.expanded .country-detail { display: block; }
+
+.view-chart { width: 100%; max-height: 200px; margin-top: 0.75rem; }
+
+/* ═══════════════════════════════════════════════════════════════
    Responsive — Mobile-first breakpoints
    ═══════════════════════════════════════════════════════════════ */
+
+.view-chart { width: 100%; max-height: 200px; margin-top: 0.75rem; }
 
 /* Tablet (≤900px) */
 @media (max-width: 900px) {

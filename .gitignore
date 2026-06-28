@@ -6,6 +6,8 @@ npm-debug.log*
 *.png
 *.jpg
 *.jpeg
+!assets/textures/*.jpg
+!assets/textures/*.png
 
 # macOS
 .DS_Store
